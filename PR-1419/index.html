@@ -1,0 +1,1498 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>xLLM Composite Block Manager 机制说明</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17212b;
+      --muted: #667281;
+      --line: #d8dee8;
+      --line-strong: #b8c2d1;
+      --page: #f7f8fb;
+      --panel: #ffffff;
+      --panel-soft: #f1f5f9;
+      --nav: #102030;
+      --teal: #087f8c;
+      --green: #2f7d32;
+      --amber: #b26a00;
+      --red: #b42318;
+      --blue: #2563eb;
+      --violet: #6d45b8;
+      --code: #0f172a;
+      --code-bg: #eef2f7;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.10);
+      --radius: 8px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 24px 18px;
+      background: var(--nav);
+      color: #dbe7f3;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .brand {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 22px;
+    }
+
+    .brand strong {
+      color: #ffffff;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .brand span {
+      color: #98a8ba;
+      font-size: 12px;
+    }
+
+    nav {
+      display: grid;
+      gap: 4px;
+    }
+
+    nav a {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: #dbe7f3;
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    nav a:hover,
+    nav a.active {
+      background: rgba(255, 255, 255, 0.09);
+      color: #ffffff;
+    }
+
+    .nav-group {
+      margin: 18px 10px 8px;
+      color: #8fa1b5;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    section {
+      padding: 54px clamp(22px, 4vw, 58px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    section:nth-child(even) {
+      background: #fbfcfe;
+    }
+
+    .hero {
+      background:
+        linear-gradient(135deg, rgba(8, 127, 140, 0.11), rgba(37, 99, 235, 0.06) 38%, rgba(47, 125, 50, 0.09)),
+        #ffffff;
+      padding-top: 64px;
+    }
+
+    .hero h1 {
+      max-width: 1120px;
+      margin: 0;
+      font-size: clamp(32px, 5vw, 60px);
+      line-height: 1.04;
+      letter-spacing: 0;
+    }
+
+    .hero .lead {
+      max-width: 1040px;
+      margin: 24px 0 0;
+      font-size: 18px;
+      color: #3f4b5a;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 30px;
+      max-width: 1120px;
+    }
+
+    .metric {
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      min-height: 94px;
+    }
+
+    .metric b {
+      display: block;
+      font-size: 22px;
+      color: var(--ink);
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    h2 {
+      margin: 0 0 22px;
+      font-size: 28px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+      max-width: 980px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.four {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .panel.soft {
+      background: var(--panel-soft);
+      box-shadow: none;
+    }
+
+    .panel.compact {
+      padding: 14px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 0;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #ffffff;
+      color: #445164;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .tag.teal {
+      border-color: rgba(8, 127, 140, 0.26);
+      background: rgba(8, 127, 140, 0.08);
+      color: #075d66;
+    }
+
+    .tag.green {
+      border-color: rgba(47, 125, 50, 0.24);
+      background: rgba(47, 125, 50, 0.08);
+      color: #245d28;
+    }
+
+    .tag.amber {
+      border-color: rgba(178, 106, 0, 0.26);
+      background: rgba(178, 106, 0, 0.09);
+      color: #7a4b00;
+    }
+
+    .tag.red {
+      border-color: rgba(180, 35, 24, 0.24);
+      background: rgba(180, 35, 24, 0.08);
+      color: #8d1f17;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 14px;
+      max-width: 1100px;
+    }
+
+    .commit {
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .commit .hash {
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: #ffffff;
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--code);
+      min-height: 100%;
+    }
+
+    .commit .hash span {
+      display: block;
+      margin-top: 8px;
+      font-family: inherit;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .diagram {
+      width: 100%;
+      overflow: auto;
+      border: 1px solid var(--line);
+      background: #ffffff;
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .arch {
+      min-width: 980px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .arch .box,
+    .class-box,
+    .flow-node,
+    .shape {
+      border: 1px solid var(--line-strong);
+      background: #ffffff;
+      border-radius: var(--radius);
+      padding: 12px;
+      min-height: 94px;
+    }
+
+    .arch .box h4,
+    .class-box h4,
+    .flow-node h4,
+    .shape h4 {
+      margin: 0 0 6px;
+      font-size: 14px;
+    }
+
+    .arch .box p,
+    .class-box p,
+    .flow-node p,
+    .shape p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .arrow {
+      position: relative;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .arrow::before {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: var(--line-strong);
+    }
+
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      border-left: 7px solid var(--line-strong);
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+    }
+
+    .composition {
+      min-width: 1020px;
+      display: grid;
+      grid-template-columns: 1.05fr 1fr 1.1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .group-card {
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: #ffffff;
+      padding: 12px;
+    }
+
+    .group-card.ring {
+      border-left: 5px solid var(--amber);
+    }
+
+    .group-card.token {
+      border-left: 5px solid var(--teal);
+    }
+
+    .group-card strong {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .bars {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .bar {
+      height: 18px;
+      background: #e8edf4;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #d4dce8;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      background: var(--teal);
+    }
+
+    .bar.amber span {
+      background: var(--amber);
+    }
+
+    .seq-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .seq-table th,
+    .seq-table td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      vertical-align: top;
+    }
+
+    .seq-table th {
+      background: #edf2f7;
+      text-align: left;
+      color: #354152;
+    }
+
+    .code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: var(--code-bg);
+      color: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      border-radius: var(--radius);
+      overflow: auto;
+      background: #111827;
+      color: #e5eef8;
+      line-height: 1.48;
+      font-size: 12px;
+      tab-size: 2;
+    }
+
+    pre .hl {
+      color: #93e0d0;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(150px, 1fr));
+      gap: 10px;
+      min-width: 1080px;
+    }
+
+    .flow-node {
+      min-height: 132px;
+      position: relative;
+    }
+
+    .flow-node::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -11px;
+      width: 11px;
+      height: 2px;
+      background: var(--line-strong);
+    }
+
+    .flow-node:last-child::after {
+      display: none;
+    }
+
+    .flow-node small {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .classes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .class-tree {
+      display: grid;
+      gap: 10px;
+    }
+
+    .class-box.base {
+      border-left: 5px solid var(--blue);
+    }
+
+    .class-box.single {
+      border-left: 5px solid var(--green);
+      margin-left: 32px;
+    }
+
+    .class-box.composite {
+      border-left: 5px solid var(--violet);
+      margin-left: 32px;
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .compare .panel {
+      box-shadow: none;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 10px;
+    }
+
+    .check {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    .check b {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: rgba(8, 127, 140, 0.10);
+      color: var(--teal);
+      font-size: 13px;
+    }
+
+    .searchbar {
+      display: flex;
+      gap: 10px;
+      margin: 0 0 14px;
+      max-width: 720px;
+    }
+
+    input[type="search"],
+    input[type="number"] {
+      width: 100%;
+      min-height: 40px;
+      padding: 9px 11px;
+      border-radius: 6px;
+      border: 1px solid var(--line-strong);
+      background: #ffffff;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tab {
+      border: 1px solid var(--line-strong);
+      background: #ffffff;
+      color: #334155;
+      border-radius: 6px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+    }
+
+    .tab.active {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: #ffffff;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .calc {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .calc-output {
+      display: grid;
+      gap: 10px;
+    }
+
+    .calc-row {
+      display: grid;
+      grid-template-columns: 160px minmax(0, 1fr) 84px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .mini-blocks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-height: 32px;
+      padding: 6px;
+      border-radius: 6px;
+      background: #eef2f7;
+      border: 1px solid var(--line);
+    }
+
+    .mini-block {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      background: var(--teal);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .mini-block.ring {
+      background: var(--amber);
+    }
+
+    .mini-block.soft {
+      opacity: 0.38;
+    }
+
+    .callout {
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(8, 127, 140, 0.26);
+      background: rgba(8, 127, 140, 0.07);
+      color: #183d44;
+    }
+
+    .risk {
+      border-color: rgba(180, 35, 24, 0.26);
+      background: rgba(180, 35, 24, 0.07);
+      color: #5f241f;
+    }
+
+    .footer {
+      padding: 32px clamp(22px, 4vw, 58px);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        display: block;
+      }
+
+      aside {
+        position: relative;
+        height: auto;
+      }
+
+      nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .meta-grid,
+      .grid.two,
+      .grid.three,
+      .grid.four,
+      .classes,
+      .compare,
+      .calc {
+        grid-template-columns: 1fr;
+      }
+
+      .commit {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">
+        <strong>Composite Block Explainer</strong>
+        <span>branch: feat/composite-block-manager</span>
+      </div>
+      <nav id="toc">
+        <a href="#overview">总览</a>
+        <a href="#commits">Commit 分层</a>
+        <a href="#problem">要解决的问题</a>
+        <a href="#architecture">架构总图</a>
+        <a href="#composition">组合模型</a>
+        <a href="#classes">类层级</a>
+        <a href="#allocation">分配流程</a>
+        <a href="#scheduling">调度与驱逐</a>
+        <a href="#metadata">Batch 元数据链路</a>
+        <a href="#code-map">代码导航</a>
+        <a href="#tests">测试覆盖</a>
+        <a href="#notes">边界与结论</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section class="hero" id="overview">
+        <h1>xLLM Composite Block Manager 机制说明</h1>
+        <p class="lead">
+          当前分支前两个 commit 为后续 DeepSeek V4 的 composite block 机制打底：把原先“一个序列只对应一组 KV cache block”的假设扩展为“一个序列可以同时持有多个 block group”，并让分配、估算、驱逐、batch 构建、跨进程传输和测试都理解这个组合结构。
+        </p>
+        <div class="meta-grid">
+          <div class="metric">
+            <b>2</b>
+            <span>分支专属 commit：de8982c + 59e7b4f</span>
+          </div>
+          <div class="metric">
+            <b>33</b>
+            <span>净改动文件，基准为 7ea3b4b856c9</span>
+          </div>
+          <div class="metric">
+            <b>+2347 / -151</b>
+            <span>核心 feature diff 规模</span>
+          </div>
+          <div class="metric">
+            <b>3 层</b>
+            <span>Plan / Allocator / Forward metadata</span>
+          </div>
+        </div>
+        <div class="tag-row">
+          <span class="tag teal">CompositeBlockPlan</span>
+          <span class="tag amber">RING group</span>
+          <span class="tag teal">TOKEN group</span>
+          <span class="tag green">SequenceBlockAllocator</span>
+          <span class="tag">multi_block_tables</span>
+          <span class="tag">can_allocate_after_release</span>
+        </div>
+      </section>
+
+      <section id="commits">
+        <h2>Commit 分层</h2>
+        <div class="timeline">
+          <div class="commit">
+            <div class="hash">de8982c<span>2026-05-09 22:27:25 +08:00</span></div>
+            <div class="panel">
+              <h3>feat: add composite block manager for deepseek v4</h3>
+              <p>
+                主体实现。新增 block group 描述、组合 allocator、KVCacheState 组合态、BlockManagerPool 选择分配器路径、scheduler eviction estimate API、batch/forward/proto/shared-memory 的 multi block table 传输，并补充单测。
+              </p>
+              <div class="tag-row">
+                <span class="tag teal">新增 block_group</span>
+                <span class="tag green">新增 sequence_block_allocator</span>
+                <span class="tag amber">调度器按 group 估算释放量</span>
+                <span class="tag">ForwardInput 扩展</span>
+              </div>
+            </div>
+          </div>
+          <div class="commit">
+            <div class="hash">59e7b4f<span>2026-05-11 16:34:52 +08:00</span></div>
+            <div class="panel">
+              <h3>fix: address composite block review comments</h3>
+              <p>
+                评审修正。主要是测试 include 使用项目根路径、测试 helper 改为 snake_case、若干 <span class="code">push_back</span> 改 <span class="code">emplace_back</span>，以及修正 <span class="code">KVCacheState::token_capacity()</span> fallback 路径从 group 0 开始扫描，避免无 group metadata 时漏算第 0 组。
+              </p>
+              <div class="tag-row">
+                <span class="tag green">代码风格修正</span>
+                <span class="tag red">token_capacity fallback 修复</span>
+                <span class="tag">测试维护性</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="problem">
+        <h2>要解决的问题</h2>
+        <div class="grid two">
+          <div class="panel">
+            <h3>旧假设：单一 block table</h3>
+            <p>
+              原 KV cache 路径把每个序列建模为一维 <span class="code">blocks_</span>。一个 <span class="code">BlockManager</span> 按统一 <span class="code">block_size</span> 分配物理 block，batch 阶段输出一个 <span class="code">block_tables</span> tensor。
+            </p>
+            <pre><code>Sequence
+  KVCacheState::blocks_ = [B0, B1, B2]
+
+ForwardInput
+  block_tables = [
+    [B0, B1, B2]
+  ]</code></pre>
+          </div>
+          <div class="panel">
+            <h3>新需求：多组 cache 同时存在</h3>
+            <p>
+              DeepSeek V4 后续需要不同形态的 KV/cache 资源并行管理：某些资源按固定 per-sequence ring 预留，某些资源按 token 增长。它们不能被塞进一个统一 block_size 的线性表里。
+            </p>
+            <pre><code>Sequence
+  composite_blocks_ = [
+    group0: [R0, R1],        // RING, 固定块数
+    group1: [T0, T1, T2],    // TOKEN, 按 token 增长
+    group2: [D0]             // TOKEN, 另一种粒度
+  ]
+
+ForwardInput
+  multi_block_tables = [
+    group0_table, group1_table, group2_table
+  ]</code></pre>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:16px">
+          这个分支的核心不是“多分配几个 BlockManager”，而是把所有原来依赖单组 KV blocks 的调用点显式区分为：单组兼容路径、组合路径、以及二者共享的抽象接口。
+        </div>
+      </section>
+
+      <section id="architecture">
+        <h2>架构总图</h2>
+        <p class="muted">
+          横向看，改动贯穿 scheduler、block manager、sequence state、batch builder、runtime transport 和 model input。纵向看，新增的关键分层是 <span class="code">SequenceBlockAllocator</span>，它把 BlockManagerPool 从“直接操作 BlockManager”改为“按序列语义操作 allocator”。
+        </p>
+        <div class="diagram">
+          <div class="arch">
+            <div class="box">
+              <h4>Scheduler</h4>
+              <p>根据 target tokens 询问是否可分配，必要时选择可驱逐请求。</p>
+              <div class="tag-row"><span class="tag">select_requests_to_evict</span></div>
+            </div>
+            <div class="box">
+              <h4>BlockManagerPool</h4>
+              <p>按 dp rank 选择 allocator；组合模式下 block_managers_ 为空指针，实际 manager 位于 allocator 内部。</p>
+              <div class="tag-row"><span class="tag teal">allocators_</span></div>
+            </div>
+            <div class="box">
+              <h4>SequenceBlockAllocator</h4>
+              <p>统一 expose allocate / deallocate / estimate / stats / capabilities。</p>
+              <div class="tag-row"><span class="tag green">SingleGroup</span><span class="tag amber">Composite</span></div>
+            </div>
+            <div class="box">
+              <h4>KVCacheState</h4>
+              <p>单组 blocks_ 与组合 composite_blocks_ 并存；组合态记录 group metadata。</p>
+              <div class="tag-row"><span class="tag">KVCacheGroupState</span></div>
+            </div>
+            <div class="box">
+              <h4>Forward Metadata</h4>
+              <p>BatchInputBuilder 生成 multi_block_tables，继续传给 proto/shared memory/model input。</p>
+              <div class="tag-row"><span class="tag teal">multi_block_tables</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="grid three" style="margin-top:16px">
+          <div class="panel compact">
+            <h3>兼容原则</h3>
+            <p>单组路径仍保留 prefix cache、cache upload、beam search、raw block allocation 等能力。</p>
+          </div>
+          <div class="panel compact">
+            <h3>隔离原则</h3>
+            <p>组合路径禁止 prefix cache / cache upload / beam search / raw block API，防止旧语义误用组合态。</p>
+          </div>
+          <div class="panel compact">
+            <h3>估算原则</h3>
+            <p>调度不再按一个 block count 推断释放量，而是按 group 粒度累加 free + releasable。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="composition">
+        <h2>组合模型</h2>
+        <p class="muted">
+          <span class="code">CompositeBlockPlan</span> 是组合模式的静态规格。每个 group 都有自己的 block size、容量和行为类型。当前支持两类 group：<span class="code">RING</span> 固定 per-sequence 块数，<span class="code">TOKEN</span> 随 target tokens 增长。
+        </p>
+        <div class="diagram">
+          <div class="composition">
+            <div class="stack">
+              <h3>Plan</h3>
+              <div class="group-card ring">
+                <strong>group 0 <span>RING</span></strong>
+                <p class="muted">tokens_per_block=16，fixed_blocks_per_sequence=2。首次分配时一次性拿固定数量，后续不增长。</p>
+              </div>
+              <div class="group-card token">
+                <strong>group 1 <span>TOKEN</span></strong>
+                <p class="muted">tokens_per_block=4。target tokens=9 时需要 ceil(9/4)=3 个 block。</p>
+              </div>
+              <div class="group-card token">
+                <strong>group 2 <span>TOKEN</span></strong>
+                <p class="muted">tokens_per_block=10。target tokens=9 时需要 ceil(9/10)=1 个 block。</p>
+              </div>
+            </div>
+            <div class="stack">
+              <h3>Allocator 内部</h3>
+              <div class="shape">
+                <h4>CompositeSequenceBlockAllocator</h4>
+                <p>持有 group_specs_ 与 group_managers_。</p>
+              </div>
+              <div class="shape">
+                <h4>group_managers_[0]</h4>
+                <p>BlockManagerImpl，block_size=16，容量来自 group0.num_blocks。</p>
+              </div>
+              <div class="shape">
+                <h4>group_managers_[1]</h4>
+                <p>BlockManagerImpl，block_size=4，独立 free/used stats。</p>
+              </div>
+              <div class="shape">
+                <h4>group_managers_[2]</h4>
+                <p>BlockManagerImpl，block_size=10，独立分配和释放。</p>
+              </div>
+            </div>
+            <div class="stack">
+              <h3>Sequence 状态</h3>
+              <table class="seq-table">
+                <thead>
+                  <tr><th>字段</th><th>组合模式含义</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td><span class="code">blocks_</span></td><td>保持为空，表示不走旧单组 block table。</td></tr>
+                  <tr><td><span class="code">composite_blocks_</span></td><td>[group][blocks] 二维结构，每组保存自己的物理 block id。</td></tr>
+                  <tr><td><span class="code">composite_group_states_</span></td><td>保存 group_id、kind、tokens_per_block，用于容量计算与校验。</td></tr>
+                  <tr><td><span class="code">token_capacity()</span></td><td>只看 TOKEN group，取各 TOKEN group capacity 的最小值。</td></tr>
+                </tbody>
+              </table>
+              <div class="bars">
+                <div class="bar amber"><span style="width:40%"></span></div>
+                <div class="bar"><span style="width:60%"></span></div>
+                <div class="bar"><span style="width:20%"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="calc panel" style="margin-top:16px">
+          <div>
+            <h3>示例分配计算器</h3>
+            <p class="muted">使用测试里的 sample plan：RING fixed=2，TOKEN-4，TOKEN-10。输入 target tokens 看各组需要的总 block 数。</p>
+            <label for="tokensInput" class="muted">target_num_tokens</label>
+            <input id="tokensInput" type="number" min="0" value="17">
+          </div>
+          <div class="calc-output" id="calcOutput"></div>
+        </div>
+      </section>
+
+      <section id="classes">
+        <h2>类层级与职责</h2>
+        <div class="classes">
+          <div class="class-tree">
+            <div class="class-box base">
+              <h4>KVCacheManager</h4>
+              <p>调度器面向的 cache manager 抽象。新增 estimate_allocate / estimate_release / can_allocate_after_release 默认虚接口。</p>
+            </div>
+            <div class="class-box base">
+              <h4>BlockManagerPool : KVCacheManager</h4>
+              <p>每个 dp rank 持有一个 allocator。负责 dp rank 选择、single-block id、兼容旧 BlockManager API。</p>
+            </div>
+            <div class="class-box base">
+              <h4>SequenceBlockAllocator</h4>
+              <p>新增核心抽象。以 Sequence 为单位完成 allocate、deallocate、estimate 和 stats。</p>
+            </div>
+            <div class="class-box single">
+              <h4>SingleGroupBlockAllocator</h4>
+              <p>适配旧路径：内部引用一个 BlockManager，支持 prefix cache、cache upload、beam search、raw block alloc。</p>
+            </div>
+            <div class="class-box composite">
+              <h4>CompositeSequenceBlockAllocator</h4>
+              <p>组合路径：持有多个 BlockManagerImpl。每个 group 独立计算 extra blocks、独立回滚、独立统计。</p>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>职责切分</h3>
+            <table class="seq-table">
+              <thead>
+                <tr><th>类 / 结构</th><th>新增职责</th><th>关键行</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>BlockGroupSpec</td><td>描述 group 行为、容量、粒度。</td><td>block_group.h:28</td></tr>
+                <tr><td>CompositeBlockPlan</td><td>保存 dense/sorted groups。</td><td>block_group.h:38</td></tr>
+                <tr><td>BlockGroupUsage</td><td>承载 free/used/needed/releasable 的统一估算结果。</td><td>sequence_block_allocator.h:37</td></tr>
+                <tr><td>SequenceAllocEstimate</td><td>回答 target tokens 是否可分配，以及瓶颈余量。</td><td>sequence_block_allocator.h:46</td></tr>
+                <tr><td>KVCacheGroupState</td><td>把 group 元信息落到每个 sequence 上。</td><td>sequence_kv_state.h:29</td></tr>
+                <tr><td>MultiBlockTables</td><td>proto 侧表示 [group][batch][block_ids]。</td><td>worker.proto:177</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="allocation">
+        <h2>分配流程</h2>
+        <p class="muted">
+          组合模式下，BlockManagerPool 仍是外部入口，但不再直接向 <span class="code">block_managers_[dp_rank]</span> 要 blocks。它先选 dp rank、分配 scheduler-side single block，然后把真正 KV block 分配委托给 <span class="code">CompositeSequenceBlockAllocator</span>。
+        </p>
+        <div class="diagram">
+          <div class="flow">
+            <div class="flow-node">
+              <small>1</small>
+              <h4>Scheduler</h4>
+              <p>调用 allocate(sequence, target_num_tokens)。target 通常来自 prefill/decode 当前步预算。</p>
+            </div>
+            <div class="flow-node">
+              <small>2</small>
+              <h4>select_dp_rank</h4>
+              <p>对每个 allocator 调用 estimate_allocate，选择 bottleneck_free_sequences 最大的 dp rank。</p>
+            </div>
+            <div class="flow-node">
+              <small>3</small>
+              <h4>single block id</h4>
+              <p>分配 per-sequence 单块资源；失败则回滚新绑定的 dp_rank。</p>
+            </div>
+            <div class="flow-node">
+              <small>4</small>
+              <h4>init composite state</h4>
+              <p>首次分配时 resize composite_blocks_ 并写入 KVCacheGroupState。</p>
+            </div>
+            <div class="flow-node">
+              <small>5</small>
+              <h4>new_block_counts</h4>
+              <p>RING 首次固定分配；TOKEN 按 ceil(target/tokens_per_block) 补齐。</p>
+            </div>
+            <div class="flow-node">
+              <small>6</small>
+              <h4>commit or rollback</h4>
+              <p>所有 group 容量足够才逐组分配；中途失败释放新增 blocks 并恢复旧大小。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs" style="margin-top:18px" data-tabs="allocTabs">
+          <button class="tab active" data-tab="allocCore">核心伪代码</button>
+          <button class="tab" data-tab="allocMath">RING/TOKEN 数学</button>
+          <button class="tab" data-tab="allocRollback">失败回滚</button>
+        </div>
+        <div class="tab-panel active" data-panel="allocCore">
+          <pre><code>BlockManagerPool::allocate(sequence, num_tokens)
+  dp_rank = select_dp_rank(sequence, num_tokens)
+  allocate_single_block(sequence, dp_rank)
+
+  if composite_block_plan.has_value():
+    ok = allocators_[dp_rank]-&gt;allocate_sequence(sequence, num_tokens)
+    if ok:
+      return true
+    rollback single block and newly bound dp_rank
+    return false</code></pre>
+        </div>
+        <div class="tab-panel" data-panel="allocMath">
+          <pre><code>CompositeSequenceBlockAllocator::new_block_counts(blocks, target)
+  for each group:
+    if group.kind == RING:
+      if current_blocks == 0:
+        new_counts[i] = group.fixed_blocks_per_sequence
+      else:
+        CHECK(current_blocks == fixed_blocks_per_sequence)
+
+    if group.kind == TOKEN:
+      target_blocks = ceil(target / group.tokens_per_block)
+      new_counts[i] = max(0, target_blocks - current_blocks)</code></pre>
+        </div>
+        <div class="tab-panel" data-panel="allocRollback">
+          <pre><code>old_sizes = current composite_blocks_[i].size()
+for each group:
+  allocate extra blocks
+  if allocation fails:
+    for each group with new appended blocks:
+      deallocate appended blocks
+      resize back to old_sizes[i]
+    if total composite blocks == 0:
+      clear composite group metadata
+    return false</code></pre>
+        </div>
+      </section>
+
+      <section id="scheduling">
+        <h2>调度与驱逐</h2>
+        <div class="compare">
+          <div class="panel">
+            <h3>旧驱逐判断</h3>
+            <p>旧代码大体按单组 block 数估算：目标需要多少 block，就从 running queue 尾部累加可释放 blocks，够了就驱逐相应数量请求。</p>
+            <pre><code>needed = ceil(target_tokens / block_size)
+can_evict = sum(candidate.num_kv_blocks)
+return can_evict &gt;= needed</code></pre>
+            <p class="muted">这个模型无法表达多 group，也容易在 prefix cache / shared block / dp rank 场景下高估释放量。</p>
+          </div>
+          <div class="panel">
+            <h3>新驱逐判断</h3>
+            <p>新代码把“释放后是否够用”的判断下沉到 KVCacheManager。它先收集候选 sequence，再按目标所在 dp rank 和 group 维度检查。</p>
+            <pre><code>estimate = allocator.estimate_allocate(target, target_tokens)
+add_release_capacity(allocator, candidates, estimate.groups)
+return every group:
+  free_blocks + releasable_blocks &gt;= needed_blocks</code></pre>
+            <p class="muted">组合路径按 group 累加；单组路径还会去重 shared block，并识别 prefix cache 持有的额外引用。</p>
+          </div>
+        </div>
+        <div class="grid three" style="margin-top:16px">
+          <div class="check">
+            <b>1</b>
+            <div>
+              <h3>按 dp rank 隔离</h3>
+              <p>已绑定目标只看同 rank candidate；未绑定目标逐 rank 试算，但不会把不同 rank 的释放量混加。</p>
+            </div>
+          </div>
+          <div class="check">
+            <b>2</b>
+            <div>
+              <h3>按 group 求和</h3>
+              <p>组合路径的 release estimate 是每个 group 的 releasable_blocks，不再依赖空的 legacy kv_blocks。</p>
+            </div>
+          </div>
+          <div class="check">
+            <b>3</b>
+            <div>
+              <h3>精确删除队列元素</h3>
+              <p>DecodePriorityQueue 新增 erase，驱逐不再假设被选中的请求一定是 back。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="metadata">
+        <h2>Batch 元数据链路</h2>
+        <p class="muted">
+          分配只是第一步。模型 forward 需要拿到各组 block id，所以这个分支把 <span class="code">multi_block_tables</span> 从 BatchInputBuilder 贯穿到 ModelInputParams、RawForwardInput、proto 与 shared memory。
+        </p>
+        <div class="diagram">
+          <svg viewBox="0 0 1160 360" width="1160" height="360" role="img" aria-label="multi block tables data path">
+            <defs>
+              <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b98aa"></path>
+              </marker>
+              <style>
+                .svg-box { fill: #ffffff; stroke: #b8c2d1; stroke-width: 1.5; rx: 8; }
+                .svg-soft { fill: #f1f5f9; stroke: #b8c2d1; stroke-width: 1.5; rx: 8; }
+                .svg-title { font: 700 15px system-ui, sans-serif; fill: #17212b; }
+                .svg-text { font: 12px system-ui, sans-serif; fill: #667281; }
+                .svg-code { font: 12px ui-monospace, monospace; fill: #0f172a; }
+                .svg-line { stroke: #8b98aa; stroke-width: 2; marker-end: url(#arrowHead); fill: none; }
+              </style>
+            </defs>
+
+            <rect class="svg-box" x="20" y="40" width="200" height="104"></rect>
+            <text class="svg-title" x="36" y="70">KVCacheState</text>
+            <text class="svg-code" x="36" y="96">composite_blocks_</text>
+            <text class="svg-text" x="36" y="120">[group][Block]</text>
+
+            <path class="svg-line" d="M 220 92 L 285 92"></path>
+            <rect class="svg-box" x="290" y="40" width="225" height="104"></rect>
+            <text class="svg-title" x="306" y="70">BatchInputBuilder</text>
+            <text class="svg-code" x="306" y="96">multi_block_tables_vec</text>
+            <text class="svg-text" x="306" y="120">[group][batch][block_ids]</text>
+
+            <path class="svg-line" d="M 515 92 L 580 92"></path>
+            <rect class="svg-box" x="585" y="40" width="210" height="104"></rect>
+            <text class="svg-title" x="601" y="70">ForwardInput</text>
+            <text class="svg-code" x="601" y="96">multi_block_tables</text>
+            <text class="svg-text" x="601" y="120">vector&lt;Tensor&gt;</text>
+
+            <path class="svg-line" d="M 795 92 L 860 92"></path>
+            <rect class="svg-box" x="865" y="40" width="250" height="104"></rect>
+            <text class="svg-title" x="881" y="70">Model / metadata builder</text>
+            <text class="svg-text" x="881" y="96">CPU tensor retained for host-side</text>
+            <text class="svg-text" x="881" y="120">metadata expansion</text>
+
+            <rect class="svg-soft" x="180" y="218" width="200" height="94"></rect>
+            <text class="svg-title" x="196" y="248">RawForwardInput</text>
+            <text class="svg-code" x="196" y="274">multi_block_tables_vec</text>
+            <path class="svg-line" d="M 405 264 L 470 264"></path>
+            <rect class="svg-soft" x="475" y="218" width="230" height="94"></rect>
+            <text class="svg-title" x="491" y="248">proto ForwardInput</text>
+            <text class="svg-code" x="491" y="274">MultiBlockTables #47</text>
+            <path class="svg-line" d="M 730 264 L 795 264"></path>
+            <rect class="svg-soft" x="800" y="218" width="225" height="94"></rect>
+            <text class="svg-title" x="816" y="248">Shared memory</text>
+            <text class="svg-text" x="816" y="274">manager_num + tensors</text>
+
+            <path class="svg-line" d="M 400 144 C 400 170 280 180 280 218"></path>
+            <path class="svg-line" d="M 910 218 C 910 180 690 174 690 144"></path>
+          </svg>
+        </div>
+        <div class="grid two" style="margin-top:16px">
+          <div class="panel compact">
+            <h3>普通本地 forward</h3>
+            <p><span class="code">BatchInputBuilder::state_to_forward_input()</span> 将每个 group 的二维 block table pad 成 tensor，放入 <span class="code">ModelInputParams::multi_block_tables</span>。</p>
+          </div>
+          <div class="panel compact">
+            <h3>分布式 / shared memory forward</h3>
+            <p><span class="code">RawForwardInput</span> 保存原始三维 vector；proto 和 shared memory 都显式写入 manager_num，再逐 group 传 tensor。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="code-map">
+        <h2>结构化代码导航</h2>
+        <div class="searchbar">
+          <input id="codeSearch" type="search" placeholder="过滤：allocator / scheduler / proto / token_capacity / test">
+        </div>
+        <table class="seq-table" id="codeTable">
+          <thead>
+            <tr>
+              <th>区域</th>
+              <th>文件与行</th>
+              <th>核心内容</th>
+              <th>阅读建议</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Plan</td>
+              <td><a href="../xllm/core/framework/block/block_group.h">xllm/core/framework/block/block_group.h</a>:23-42</td>
+              <td>定义 BlockGroupKind、BlockGroupSpec、CompositeBlockPlan。</td>
+              <td>先看这里，理解 TOKEN 和 RING 的规格字段。</td>
+            </tr>
+            <tr>
+              <td>Plan validation</td>
+              <td><a href="../xllm/core/framework/block/block_group.cpp">xllm/core/framework/block/block_group.cpp</a>:22-51</td>
+              <td>要求 group_id dense/sorted；TOKEN 不允许 fixed blocks；RING 必须 fixed；组合模式暂不支持 prefix cache/cache upload。</td>
+              <td>这是所有组合配置的入口防线。</td>
+            </tr>
+            <tr>
+              <td>Allocator interface</td>
+              <td><a href="../xllm/core/framework/block/sequence_block_allocator.h">xllm/core/framework/block/sequence_block_allocator.h</a>:30-126</td>
+              <td>新增能力、用量、估算、统计结构；定义 SingleGroup 与 Composite 两个实现。</td>
+              <td>重点看 estimate_allocate / estimate_release 这两个接口。</td>
+            </tr>
+            <tr>
+              <td>Composite allocation</td>
+              <td><a href="../xllm/core/framework/block/sequence_block_allocator.cpp">xllm/core/framework/block/sequence_block_allocator.cpp</a>:202-290</td>
+              <td>构造每个 group 的 BlockManagerImpl；初始化 sequence composite state；按 group 分配并支持 rollback。</td>
+              <td>这是核心实现。</td>
+            </tr>
+            <tr>
+              <td>Composite math</td>
+              <td><a href="../xllm/core/framework/block/sequence_block_allocator.cpp">xllm/core/framework/block/sequence_block_allocator.cpp</a>:394-422</td>
+              <td>RING 首次固定分配，TOKEN 按 target_num_tokens / tokens_per_block 取整。</td>
+              <td>可对照测试 AllocatesRingOnceAndTokenGroupsByTargetTokens。</td>
+            </tr>
+            <tr>
+              <td>Pool construction</td>
+              <td><a href="../xllm/core/framework/block/block_manager_pool.cpp">xllm/core/framework/block/block_manager_pool.cpp</a>:145-205</td>
+              <td>composite plan 存在时，block_managers_ 放 nullptr，allocators_ 放 CompositeSequenceBlockAllocator。</td>
+              <td>解释为什么组合模式下不能直接访问 block_managers_[i]。</td>
+            </tr>
+            <tr>
+              <td>DP rank selection</td>
+              <td><a href="../xllm/core/framework/block/block_manager_pool.cpp">xllm/core/framework/block/block_manager_pool.cpp</a>:234-258</td>
+              <td>用 allocator estimate 选 bottleneck_free_sequences 最大的 dp rank。</td>
+              <td>理解组合模式如何避免选到容量不足 rank。</td>
+            </tr>
+            <tr>
+              <td>Pool allocation</td>
+              <td><a href="../xllm/core/framework/block/block_manager_pool.cpp">xllm/core/framework/block/block_manager_pool.cpp</a>:335-403</td>
+              <td>组合模式走 allocator->allocate_sequence；失败时释放 single block 并回滚新 dp_rank。</td>
+              <td>对比旧单组路径仍在同函数后半段。</td>
+            </tr>
+            <tr>
+              <td>Eviction planning</td>
+              <td><a href="../xllm/core/framework/block/block_manager_pool.cpp">xllm/core/framework/block/block_manager_pool.cpp</a>:618-693</td>
+              <td>实现 estimate_allocate / estimate_release / can_allocate_after_release。</td>
+              <td>调度器是否能安全驱逐，最终看这里。</td>
+            </tr>
+            <tr>
+              <td>Sequence state</td>
+              <td><a href="../xllm/core/framework/request/sequence_kv_state.h">xllm/core/framework/request/sequence_kv_state.h</a>:29-86</td>
+              <td>KVCacheGroupState 与 composite_blocks_ 访问器。</td>
+              <td>理解 sequence 如何同时支持旧 blocks_ 和新 composite_blocks_。</td>
+            </tr>
+            <tr>
+              <td>Capacity</td>
+              <td><a href="../xllm/core/framework/request/sequence_kv_state.cpp">xllm/core/framework/request/sequence_kv_state.cpp</a>:110-150</td>
+              <td>组合态容量取 TOKEN group 的最小 capacity；review fix 修正 fallback 从 group 0 开始。</td>
+              <td>这是 commit 59e7b4f 的关键行为修正。</td>
+            </tr>
+            <tr>
+              <td>Scheduler</td>
+              <td><a href="../xllm/core/scheduler/continuous_scheduler.cpp">xllm/core/scheduler/continuous_scheduler.cpp</a>:193-259</td>
+              <td>select_requests_to_evict 根据 estimate_release 选择足够的 preempt candidates。</td>
+              <td>理解新驱逐不再简单 pop_back。</td>
+            </tr>
+            <tr>
+              <td>Batch builder</td>
+              <td><a href="../xllm/core/framework/batch/batch_input_builder.cpp">xllm/core/framework/batch/batch_input_builder.cpp</a>:561-693</td>
+              <td>将 composite_blocks_ 转成 [group][batch][block_ids]，pad 后写入 multi_block_tables。</td>
+              <td>这是 forward metadata 的起点。</td>
+            </tr>
+            <tr>
+              <td>Model input</td>
+              <td><a href="../xllm/core/framework/model/model_input_params.h">xllm/core/framework/model/model_input_params.h</a>:417-603</td>
+              <td>ForwardInput / ModelInputParams 新增 multi_block_tables，to() 时保持在 CPU。</td>
+              <td>关注“host-side metadata expansion”的注释。</td>
+            </tr>
+            <tr>
+              <td>Transport</td>
+              <td><a href="../xllm/core/runtime/params_utils.cpp">xllm/core/runtime/params_utils.cpp</a>:248-504</td>
+              <td>proto 与 RawForwardInput 互转时传递 multi_block_tables_vec。</td>
+              <td>分布式 worker 路径需要读这里。</td>
+            </tr>
+            <tr>
+              <td>Shared memory</td>
+              <td><a href="../xllm/core/runtime/forward_shared_memory_manager.cpp">xllm/core/runtime/forward_shared_memory_manager.cpp</a>:2103-2424</td>
+              <td>shared memory 序列化/反序列化 multi block table tensors。</td>
+              <td>关注 manager_num 的写读顺序必须一致。</td>
+            </tr>
+            <tr>
+              <td>Proto</td>
+              <td><a href="../xllm/proto/worker.proto">xllm/proto/worker.proto</a>:175-302</td>
+              <td>新增 MultiBlockTables message 和 ForwardInput field 47。</td>
+              <td>跨进程 ABI 变更点。</td>
+            </tr>
+            <tr>
+              <td>Tests</td>
+              <td><a href="../tests/core/framework/block/sequence_block_allocator_test.cpp">tests/core/framework/block/sequence_block_allocator_test.cpp</a>:169-611</td>
+              <td>覆盖组合分配、失败回滚、prefix cache 释放估算、dp rank 隔离、组合 release 求和。</td>
+              <td>最适合验证行为意图。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="tests">
+        <h2>测试覆盖</h2>
+        <div class="grid two">
+          <div class="panel">
+            <h3>Plan validation 测试</h3>
+            <div class="checklist">
+              <div class="check"><b>1</b><div>接受 dense 的 RING + TOKEN 组合。</div></div>
+              <div class="check"><b>2</b><div>拒绝 empty plan、非 dense group_id、乱序 group_id。</div></div>
+              <div class="check"><b>3</b><div>拒绝 TOKEN 固定块、tokens_per_block=0、RING 未设置 fixed blocks、RING 容量不足。</div></div>
+              <div class="check"><b>4</b><div>拒绝组合 group 上开启 prefix cache 或 cache upload。</div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Allocator / Scheduler 行为测试</h3>
+            <div class="checklist">
+              <div class="check"><b>1</b><div>RING 首次固定分配，TOKEN 按 target token 增长。</div></div>
+              <div class="check"><b>2</b><div>组合分配失败不污染 sequence state。</div></div>
+              <div class="check"><b>3</b><div>deallocate_sequence 只释放 composite blocks，不重置 kv_cache_tokens_num。</div></div>
+              <div class="check"><b>4</b><div>单组 prefix cache/shared block 场景下不高估 releasable blocks。</div></div>
+              <div class="check"><b>5</b><div>release capacity 不跨 dp rank 混加。</div></div>
+              <div class="check"><b>6</b><div>组合路径 can_allocate_after_release 按 group 累加释放量。</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="callout risk" style="margin-top:16px">
+          本文档没有执行编译或单测；它是对当前工作区两个 commit 的静态梳理。若要交付代码行为验证，建议运行新增的 <span class="code">block_allocator_test</span> 目标以及项目要求的 MLU build gate。
+        </div>
+      </section>
+
+      <section id="notes">
+        <h2>边界与结论</h2>
+        <div class="grid three">
+          <div class="panel compact">
+            <h3>当前明确不支持</h3>
+            <p>组合模式下不支持 prefix cache、cache upload、beam search、raw block allocation、deallocate_without_cache、XTensor padding。代码用 capability 或 CHECK 防误用。</p>
+          </div>
+          <div class="panel compact">
+            <h3>为什么要抽 allocator</h3>
+            <p>如果 BlockManagerPool 继续直接操作 BlockManager，就必须在每个调用点手写组合分支。SequenceBlockAllocator 把差异集中在 sequence 语义层。</p>
+          </div>
+          <div class="panel compact">
+            <h3>后续接 DeepSeek V4</h3>
+            <p>后续模型侧可以消费 multi_block_tables，根据 group 类型和 block table 展开 attention/DSA 所需 metadata，而不再受单一 block table 形状限制。</p>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:16px">
+          <h3>一句话总结</h3>
+          <p>
+            这两个 commit 把 xLLM 的 KV cache 管理从“一个 sequence 对应一个线性 block table”升级为“一个 sequence 可以由多个带语义的 block group 组合而成”，同时保留旧路径兼容性，并将调度估算和 forward metadata 全链路改造成组合感知。
+          </p>
+        </div>
+      </section>
+
+      <div class="footer">
+        Generated from local branch <span class="code">feat/composite-block-manager</span>, commits <span class="code">de8982c95893</span> and <span class="code">59e7b4f54346</span>. Base commit: <span class="code">7ea3b4b856c9</span>.
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const plan = [
+      { name: "group0 RING", kind: "ring", tokensPerBlock: 16, fixed: 2 },
+      { name: "group1 TOKEN", kind: "token", tokensPerBlock: 4, fixed: 0 },
+      { name: "group2 TOKEN", kind: "token", tokensPerBlock: 10, fixed: 0 }
+    ];
+
+    function renderCalc() {
+      const input = document.getElementById("tokensInput");
+      const output = document.getElementById("calcOutput");
+      const tokens = Math.max(0, Number(input.value || 0));
+      output.innerHTML = "";
+      plan.forEach((group) => {
+        const blocks = group.kind === "ring"
+          ? group.fixed
+          : Math.ceil(tokens / group.tokensPerBlock);
+        const row = document.createElement("div");
+        row.className = "calc-row";
+        const label = document.createElement("div");
+        label.innerHTML = `<strong>${group.name}</strong><br><span class="muted">${group.kind === "ring" ? "fixed per sequence" : "ceil(tokens / " + group.tokensPerBlock + ")"}</span>`;
+        const blockWrap = document.createElement("div");
+        blockWrap.className = "mini-blocks";
+        const visible = Math.min(blocks, 32);
+        for (let i = 0; i < visible; i += 1) {
+          const block = document.createElement("span");
+          block.className = `mini-block ${group.kind === "ring" ? "ring" : ""}`;
+          blockWrap.appendChild(block);
+        }
+        if (blocks > visible) {
+          const more = document.createElement("span");
+          more.className = "tag";
+          more.textContent = `+${blocks - visible}`;
+          blockWrap.appendChild(more);
+        }
+        const count = document.createElement("div");
+        count.innerHTML = `<span class="code">${blocks} blocks</span>`;
+        row.append(label, blockWrap, count);
+        output.appendChild(row);
+      });
+    }
+
+    document.getElementById("tokensInput").addEventListener("input", renderCalc);
+    renderCalc();
+
+    document.querySelectorAll("[data-tabs]").forEach((tabRoot) => {
+      const tabs = tabRoot.querySelectorAll(".tab");
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const target = tab.dataset.tab;
+          tabs.forEach((t) => t.classList.toggle("active", t === tab));
+          document.querySelectorAll(`[data-panel]`).forEach((panel) => {
+            panel.classList.toggle("active", panel.dataset.panel === target);
+          });
+        });
+      });
+    });
+
+    const search = document.getElementById("codeSearch");
+    const rows = Array.from(document.querySelectorAll("#codeTable tbody tr"));
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      rows.forEach((row) => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? "" : "none";
+      });
+    });
+
+    const tocLinks = Array.from(document.querySelectorAll("#toc a"));
+    const sections = tocLinks.map((link) => document.querySelector(link.getAttribute("href")));
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) {
+          return;
+        }
+        tocLinks.forEach((link) => {
+          link.classList.toggle("active", link.getAttribute("href") === `#${entry.target.id}`);
+        });
+      });
+    }, { rootMargin: "-40% 0px -55% 0px", threshold: 0.01 });
+    sections.forEach((section) => observer.observe(section));
+  </script>
+</body>
+</html>
