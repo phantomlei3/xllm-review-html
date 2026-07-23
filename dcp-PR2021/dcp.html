@@ -1,0 +1,2272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>xLLM DCP（Decode Context Parallel）设计方案</title>
+  <style>
+    :root {
+      --ink: #18211d;
+      --muted: #5f6c65;
+      --paper: #f6f3eb;
+      --panel: #fffdf8;
+      --line: #d9d5ca;
+      --green: #176b55;
+      --green-soft: #dcebe4;
+      --orange: #d45d2c;
+      --orange-soft: #fae6d9;
+      --blue: #315f83;
+      --blue-soft: #e1ecf3;
+      --gold: #a87919;
+      --gold-soft: #f5ecd3;
+      --red: #a83c35;
+      --red-soft: #f6e1dd;
+      --shadow: 0 14px 36px rgba(39, 49, 43, .08);
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% -5%, rgba(49, 95, 131, .13), transparent 28rem),
+        radial-gradient(circle at 100% 12%, rgba(212, 93, 44, .10), transparent 30rem),
+        var(--paper);
+      font-family: var(--sans);
+      line-height: 1.7;
+    }
+
+    a { color: var(--green); }
+    code, pre { font-family: var(--mono); }
+    code {
+      padding: .12em .38em;
+      border: 1px solid #ddd8cc;
+      border-radius: .35em;
+      background: #f2efe7;
+      font-size: .9em;
+    }
+    pre {
+      overflow: auto;
+      margin: 1rem 0 0;
+      padding: 1rem 1.15rem;
+      border: 1px solid #d7d2c6;
+      border-radius: 12px;
+      color: #eaf3ee;
+      background: #1e2a25;
+      line-height: 1.55;
+      font-size: .84rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 20px;
+      border-right: 1px solid rgba(123, 130, 124, .25);
+      background: rgba(246, 243, 235, .86);
+      backdrop-filter: blur(12px);
+      overflow: auto;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      font-weight: 760;
+      letter-spacing: -.02em;
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      color: white;
+      background: var(--green);
+      box-shadow: 0 8px 20px rgba(23, 107, 85, .22);
+    }
+    nav a {
+      display: block;
+      margin: 2px 0;
+      padding: 7px 10px;
+      border-radius: 8px;
+      color: #526059;
+      text-decoration: none;
+      font-size: .88rem;
+    }
+    nav a:hover { color: var(--ink); background: rgba(255,255,255,.7); }
+    .nav-label {
+      margin: 18px 10px 5px;
+      color: #89928d;
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .aside-note {
+      margin-top: 24px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--muted);
+      background: rgba(255,255,255,.55);
+      font-size: .76rem;
+    }
+
+    main {
+      width: 100%;
+      min-width: 0;
+      padding: 48px clamp(24px, 5vw, 74px) 90px;
+    }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      min-height: 440px;
+      padding: clamp(32px, 6vw, 76px);
+      border-radius: 28px;
+      color: white;
+      background:
+        linear-gradient(125deg, rgba(17, 76, 60, .98), rgba(29, 52, 65, .98)),
+        #173f35;
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -90px;
+      bottom: -120px;
+      width: 420px;
+      height: 420px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 48px rgba(255,255,255,.035),
+        0 0 0 110px rgba(255,255,255,.025);
+    }
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 10px;
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      font-size: .76rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 30px 0 16px;
+      font-size: clamp(2.5rem, 6vw, 5.4rem);
+      line-height: 1.03;
+      letter-spacing: -.055em;
+    }
+    .hero .lead {
+      position: relative;
+      z-index: 1;
+      max-width: 820px;
+      color: rgba(255,255,255,.78);
+      font-size: clamp(1rem, 1.8vw, 1.22rem);
+    }
+    .hero-meta {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 22px;
+      margin-top: 42px;
+      color: rgba(255,255,255,.72);
+      font-family: var(--mono);
+      font-size: .78rem;
+    }
+
+    section { scroll-margin-top: 22px; margin-top: 72px; }
+    h2 {
+      margin: 0 0 20px;
+      font-size: clamp(1.65rem, 3vw, 2.45rem);
+      line-height: 1.2;
+      letter-spacing: -.035em;
+    }
+    h3 {
+      margin: 0 0 12px;
+      font-size: 1.08rem;
+      letter-spacing: -.012em;
+    }
+    p { margin: .6rem 0; }
+    .section-kicker {
+      margin-bottom: 7px;
+      color: var(--orange);
+      font-size: .76rem;
+      font-weight: 760;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .section-intro {
+      max-width: 920px;
+      margin-top: -8px;
+      color: var(--muted);
+      font-size: 1.02rem;
+    }
+
+    .grid { display: grid; gap: 18px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,253,248,.82);
+      box-shadow: 0 6px 20px rgba(39, 49, 43, .04);
+    }
+    .card p:last-child, .callout p:last-child { margin-bottom: 0; }
+    .metric {
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: 1.85rem;
+      font-weight: 780;
+      line-height: 1.2;
+    }
+    .muted { color: var(--muted); }
+    .tag {
+      display: inline-block;
+      margin: 2px 4px 2px 0;
+      padding: 3px 8px;
+      border-radius: 999px;
+      color: var(--green);
+      background: var(--green-soft);
+      font-size: .73rem;
+      font-weight: 700;
+    }
+    .tag.orange { color: #934321; background: var(--orange-soft); }
+    .tag.blue { color: var(--blue); background: var(--blue-soft); }
+    .tag.red { color: var(--red); background: var(--red-soft); }
+
+    .status-banner {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      align-items: start;
+      margin: 22px 0;
+      padding: 18px 20px;
+      border: 1px solid #e4b8b2;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #fff4f1, var(--red-soft));
+    }
+    .status-mark {
+      display: grid;
+      place-items: center;
+      min-width: 92px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      color: white;
+      background: var(--red);
+      font-size: .73rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    .callout {
+      margin: 22px 0;
+      padding: 18px 20px;
+      border-left: 4px solid var(--green);
+      border-radius: 0 12px 12px 0;
+      background: var(--green-soft);
+    }
+    .callout.warn { border-color: var(--gold); background: var(--gold-soft); }
+    .callout.risk { border-color: var(--red); background: var(--red-soft); }
+    .callout.info { border-color: var(--blue); background: var(--blue-soft); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .88rem;
+    }
+    th, td {
+      padding: 13px 14px;
+      border-bottom: 1px solid #e5e1d7;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      color: #3f4f47;
+      background: #f1eee6;
+      font-size: .74rem;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    tr:last-child td { border-bottom: 0; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      gap: 24px;
+      margin: 24px 0;
+    }
+    .flow-step {
+      position: relative;
+      min-height: 150px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--green);
+      border-radius: 13px;
+      background: var(--panel);
+    }
+    .flow-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -20px;
+      top: 48%;
+      color: var(--orange);
+      font-size: 1.45rem;
+      font-weight: 800;
+    }
+    .flow-num {
+      margin-bottom: 10px;
+      color: var(--orange);
+      font-family: var(--mono);
+      font-size: .75rem;
+      font-weight: 800;
+    }
+    .flow-step p { color: var(--muted); font-size: .82rem; }
+
+    .diagram {
+      overflow: auto;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+    }
+    .arch {
+      display: grid;
+      grid-template-columns: 1fr 58px 1.2fr 58px 1.2fr;
+      align-items: center;
+      min-width: 900px;
+    }
+    .arch-col { display: grid; gap: 10px; }
+    .arch-box {
+      padding: 14px 16px;
+      border: 1px solid #cbd4cf;
+      border-radius: 11px;
+      background: #f7faf8;
+      text-align: center;
+      font-size: .84rem;
+      font-weight: 650;
+    }
+    .arch-box.orange { border-color: #efc4ad; background: #fff5ef; }
+    .arch-box.blue { border-color: #bcd0de; background: #f0f6fa; }
+    .arch-arrow { color: var(--orange); text-align: center; font-size: 1.8rem; }
+
+    .plane-map {
+      display: grid;
+      gap: 12px;
+      min-width: 1080px;
+    }
+    .plane-row {
+      display: grid;
+      grid-template-columns: 132px repeat(4, minmax(185px, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+    .plane-label {
+      display: grid;
+      place-items: center;
+      padding: 14px 10px;
+      border-radius: 12px;
+      color: white;
+      background: var(--green);
+      text-align: center;
+      font-size: .82rem;
+      font-weight: 800;
+    }
+    .plane-label.data { background: var(--orange); }
+    .plane-label.model { background: var(--blue); }
+    .plane-cell {
+      position: relative;
+      min-height: 105px;
+      padding: 14px 15px;
+      border: 1px solid #cbd4cf;
+      border-radius: 12px;
+      background: #f7faf8;
+      font-size: .78rem;
+    }
+    .plane-cell.control { border-color: #b9d5c9; background: #eff8f4; }
+    .plane-cell.data { border-color: #efc4ad; background: #fff5ef; }
+    .plane-cell.model { border-color: #bcd0de; background: #f0f6fa; }
+    .plane-cell strong { display: block; margin-bottom: 5px; font-size: .86rem; }
+    .plane-cell p { margin: 0; color: var(--muted); }
+    .plane-cell:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      z-index: 2;
+      right: -10px;
+      top: calc(50% - 13px);
+      color: var(--orange);
+      font-size: 1.1rem;
+      font-weight: 850;
+    }
+    .plane-contracts {
+      display: grid;
+      grid-template-columns: 132px repeat(4, minmax(185px, 1fr));
+      gap: 10px;
+      min-width: 1080px;
+      margin: 7px 0;
+    }
+    .plane-contracts > div:not(:first-child) {
+      padding: 6px 8px;
+      border: 1px dashed #cfc8ba;
+      border-radius: 999px;
+      color: #6d665c;
+      background: #faf7ef;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: .67rem;
+    }
+    .plane-contracts .contract-label {
+      display: grid;
+      place-items: center end;
+      color: var(--muted);
+      font-size: .7rem;
+      font-weight: 750;
+    }
+    .interaction-sequence {
+      display: grid;
+      grid-template-columns: 170px repeat(4, minmax(190px, 1fr));
+      min-width: 1060px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #faf8f2;
+    }
+    .seq-head, .seq-label, .seq-cell {
+      padding: 11px 12px;
+      border-right: 1px solid #e2ddd2;
+      border-bottom: 1px solid #e2ddd2;
+    }
+    .seq-head {
+      color: white;
+      background: var(--blue);
+      text-align: center;
+      font-size: .75rem;
+      font-weight: 800;
+    }
+    .seq-head:first-child { background: #405049; }
+    .seq-label {
+      color: var(--muted);
+      background: #f1eee6;
+      font-size: .71rem;
+      font-weight: 800;
+    }
+    .seq-cell {
+      position: relative;
+      min-height: 64px;
+      color: var(--muted);
+      background: rgba(255, 253, 248, .88);
+      font-size: .72rem;
+    }
+    .seq-cell.active {
+      color: var(--ink);
+      background: #fff7f1;
+      font-weight: 650;
+    }
+    .interaction-sequence > :nth-child(5n) { border-right: 0; }
+    .interaction-sequence > :nth-last-child(-n+5) { border-bottom: 0; }
+    .status-key {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: .76rem;
+    }
+    .status-key span::before {
+      content: "";
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .status-key .planned::before { background: var(--red); }
+
+    .pd-pipeline {
+      display: grid;
+      grid-template-columns: 1fr 42px 1.1fr 42px 1fr 42px 1.1fr;
+      align-items: stretch;
+      min-width: 1040px;
+    }
+    .pd-node {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 150px;
+      padding: 17px;
+      border: 1px solid #cbd4cf;
+      border-radius: 14px;
+      background: #f7faf8;
+      text-align: center;
+    }
+    .pd-node.source { border-color: #bcd0de; background: #f0f6fa; }
+    .pd-node.transport { border-color: #efc4ad; background: #fff5ef; }
+    .pd-node.target { border-color: #b9d5c9; background: #eff8f4; }
+    .pd-node strong { display: block; margin-bottom: 7px; }
+    .pd-node p { margin: 0; color: var(--muted); font-size: .8rem; }
+    .pd-arrow {
+      display: grid;
+      place-items: center;
+      color: var(--orange);
+      font-size: 1.6rem;
+      font-weight: 800;
+    }
+    .pd-bad-path {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 8px;
+      align-items: center;
+      min-width: 880px;
+    }
+    .pd-bad-path > div {
+      padding: 12px;
+      border: 1px dashed #d6aaa4;
+      border-radius: 10px;
+      background: #fff8f6;
+      text-align: center;
+      font-size: .78rem;
+    }
+    .pd-bad-path .cross {
+      border: 0;
+      color: var(--red);
+      background: transparent;
+      font-size: 1.45rem;
+      font-weight: 850;
+    }
+    .shard-board {
+      overflow-x: auto;
+      margin: 18px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #faf8f2;
+    }
+    .device-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(190px, 1fr));
+      gap: 10px;
+      min-width: 820px;
+      margin: 12px 0;
+    }
+    .device-card {
+      padding: 14px;
+      border: 1px solid #c9d5dd;
+      border-radius: 12px;
+      background: #f3f8fb;
+    }
+    .device-card.replica {
+      border-style: dashed;
+      opacity: .68;
+    }
+    .device-card strong { display: block; }
+    .device-meta {
+      margin: 5px 0 9px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: .68rem;
+    }
+    .mini-tokens {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(32px, 1fr));
+      gap: 4px;
+    }
+    .mini-tokens span {
+      padding: 5px 2px;
+      border-radius: 5px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: .66rem;
+    }
+    .gather-band {
+      min-width: 820px;
+      margin: 16px 0;
+      padding: 13px 16px;
+      border: 1px solid #efc4ad;
+      border-radius: 12px;
+      background: #fff5ef;
+      text-align: center;
+    }
+    .gather-band strong { color: #934321; }
+    .relation-map {
+      display: grid;
+      grid-template-columns: 1.2fr 42px 1fr 42px 1fr;
+      align-items: stretch;
+      min-width: 920px;
+    }
+    .relation-box {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+    }
+    .relation-box strong { display: block; margin-bottom: 7px; }
+    .relation-box p { color: var(--muted); font-size: .8rem; }
+    .shard-row {
+      display: grid;
+      grid-template-columns: 132px repeat(8, 72px);
+      gap: 6px;
+      width: max-content;
+      margin-top: 7px;
+    }
+    .shard-label {
+      display: grid;
+      place-items: center start;
+      color: var(--muted);
+      font-size: .75rem;
+      font-weight: 780;
+    }
+    .token-chip {
+      min-height: 49px;
+      padding: 6px 3px;
+      border-radius: 7px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: .7rem;
+    }
+    .token-chip small { display: block; opacity: .68; }
+    .token-chip.empty {
+      border: 1px dashed #ddd8cd;
+      color: #aaa59c;
+      background: transparent;
+    }
+    .p0 { color: #244f72; background: #d7e7f2; }
+    .p1 { color: #7d4821; background: #f5dfc9; }
+    .d0 { color: #104f3f; background: #cce8dc; }
+    .d1 { color: #754719; background: #f3dfb5; }
+    .d2 { color: #5b3d74; background: #e6d9f0; }
+    .d3 { color: #7b3434; background: #f0d3d1; }
+    .contract-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .contract {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+    }
+    .contract strong { display: block; margin-bottom: 6px; }
+    .contract code { display: inline-block; margin: 2px 2px 2px 0; }
+    .state-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 0;
+      list-style: none;
+    }
+    .state-list li {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel);
+      font-size: .84rem;
+    }
+
+    .mapping-case {
+      overflow-x: auto;
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px solid #e2ddd2;
+      border-radius: 12px;
+      background: #faf8f2;
+    }
+    .token-strip {
+      display: grid;
+      grid-template-columns: repeat(8, 86px);
+      gap: 6px;
+      width: max-content;
+      margin: 8px 0 16px;
+    }
+    .rank-store {
+      display: grid;
+      grid-template-columns: 92px repeat(4, 86px);
+      gap: 6px;
+      width: max-content;
+      margin-top: 6px;
+    }
+    .store-label {
+      display: grid;
+      place-items: center start;
+      color: var(--muted);
+      font-size: .76rem;
+      font-weight: 750;
+    }
+    .slot {
+      padding: 9px 4px;
+      border-radius: 7px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: .73rem;
+    }
+    .r0 { color: #104f3f; background: #cce8dc; }
+    .r1 { color: #85401f; background: #f9dcca; }
+    .slot small { display: block; opacity: .72; }
+
+    .timeline { position: relative; margin-left: 11px; padding-left: 29px; }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: #cdd5d0;
+    }
+    .event {
+      position: relative;
+      margin: 0 0 24px;
+      padding: 17px 20px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel);
+    }
+    .event::before {
+      content: "";
+      position: absolute;
+      left: -33px;
+      top: 21px;
+      width: 10px;
+      height: 10px;
+      border: 3px solid var(--paper);
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 0 1px var(--orange);
+    }
+    .commit {
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: .78rem;
+      font-weight: 750;
+    }
+
+    .checklist { padding: 0; list-style: none; }
+    .checklist li {
+      position: relative;
+      margin: 9px 0;
+      padding-left: 27px;
+    }
+    .checklist li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      top: 1px;
+      color: var(--green);
+      font-weight: 850;
+    }
+    .checklist.risks li::before { content: "!"; color: var(--red); }
+
+    .foot {
+      margin-top: 80px;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: .8rem;
+    }
+
+    @media (max-width: 1100px) {
+      .layout { display: block; }
+      aside { position: static; width: auto; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      aside nav, .aside-note { display: none; }
+      .brand { margin: 0; }
+      main { padding-top: 26px; }
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .flow { grid-template-columns: 1fr; }
+      .flow-step { min-height: auto; }
+      .flow-step:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -26px; }
+      .contract-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      main { padding-inline: 15px; }
+      .hero { min-height: auto; padding: 30px 24px; border-radius: 20px; }
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+      .status-banner { grid-template-columns: 1fr; }
+      .status-mark { width: fit-content; }
+      .state-list { grid-template-columns: 1fr; }
+      section { margin-top: 54px; }
+    }
+    @media print {
+      body { background: white; }
+      aside { display: none; }
+      .layout { display: block; max-width: none; }
+      main { padding: 0; }
+      .hero { min-height: auto; box-shadow: none; print-color-adjust: exact; }
+      section { break-inside: avoid; }
+      .card, .diagram, .table-wrap, .event { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand"><span class="brand-mark">D</span><span>xLLM / DCP Design</span></div>
+      <nav aria-label="文档目录">
+        <div class="nav-label">Overview</div>
+        <a href="#summary">执行摘要</a>
+        <a href="#scope">目标与边界</a>
+        <a href="#terms">术语与原则</a>
+        <div class="nav-label">Architecture</div>
+        <a href="#architecture">总体架构</a>
+        <a href="#configuration">配置与拓扑</a>
+        <a href="#cache">KV Cache 切分</a>
+        <a href="#decode">Decode 核心流程</a>
+        <a href="#dsa">DSA Top-K 协同</a>
+        <a href="#pd-reshard">PD KV 重分片</a>
+        <div class="nav-label">Engineering</div>
+        <a href="#changes">分支现状</a>
+        <a href="#modules">模块职责</a>
+        <a href="#performance">性能模型</a>
+        <a href="#compatibility">兼容与部署</a>
+      </nav>
+      <div class="aside-note">
+        分析范围：当前分支 <code>dcp</code> 的 HEAD 前 6 个提交，区间
+        <code>a00008ac..6d8db5ee</code>。
+      </div>
+    </aside>
+
+    <main>
+      <header class="hero">
+        <span class="eyebrow">Technical Design · DCP · GLM-5.2</span>
+        <h1>Decode Context Parallel</h1>
+        <p class="lead">
+          xLLM DCP 完整设计方案：在不复制完整主 KV Cache 的前提下，将 Decode Attention
+          的上下文维度分布到多个设备 rank，并通过 Query 聚合、局部 Attention、
+          Head 重排和 LSE 合并恢复与单卡语义一致的输出；在 PD 分离部署中，
+          通过多源 Pack、Mooncake Staging 与 Decode Scatter 将 Prefill KV 转换为原生 DCP 布局。
+        </p>
+        <div class="hero-meta">
+          <span>branch: dcp</span>
+          <span>range: HEAD~6..HEAD</span>
+          <span>24 files / +880 -6</span>
+          <span>generated: 2026-07-23</span>
+        </div>
+      </header>
+
+      <section id="summary">
+        <div class="section-kicker">01 / Executive summary</div>
+        <h2>执行摘要</h2>
+        <p class="section-intro">
+          本次改动的核心不是新增一个独立 Attention Kernel，而是在现有 TP、Paged KV Cache、
+          MLA/DSA 和集合通信框架之间建立一条 Decode 专用的上下文并行数据通路。
+        </p>
+        <div class="grid grid-4">
+          <article class="card">
+            <div class="metric">1 / D</div>
+            <h3>主 KV Cache 占用</h3>
+            <p class="muted">DCP size 为 D 时，每个 rank 仅保存约 1/D 的主 MLA KV Token。</p>
+          </article>
+          <article class="card">
+            <div class="metric">3 类</div>
+            <h3>Decode 通信</h3>
+            <p class="muted">Q AllGather、Output/LSE AllToAll，以及 DSA 全局候选 Top-K 汇聚。</p>
+          </article>
+          <article class="card">
+            <div class="metric">Decode</div>
+            <h3>阶段隔离</h3>
+            <p class="muted">仅 Decode 进入 DCP；Prefill 与 Chunked Prefill 沿用原有路径。</p>
+          </article>
+          <article class="card">
+            <div class="metric">Target</div>
+            <h3>PD KV 重分片</h3>
+            <p class="muted">设计支持 Prefill <code>C + S</code> 布局转换为 Decode
+              <code>D + I</code> 布局；当前代码尚未实现。</p>
+          </article>
+        </div>
+        <div class="callout">
+          <strong>一句话设计：</strong>每个 DCP rank 保存一段上下文 KV，却临时获得完整 Query Heads；
+          对本地上下文算出部分 Attention 后，按 TP Head 所有权交换部分结果，再用 Log-Sum-Exp
+          统计量进行精确合并，最终回到常规 TP 输出投影。
+        </div>
+      </section>
+
+      <section id="scope">
+        <div class="section-kicker">02 / Goals & boundaries</div>
+        <h2>目标、动机与边界</h2>
+        <div class="grid grid-3">
+          <article class="card">
+            <h3>问题</h3>
+            <p>长上下文 Decode 时，主 KV Cache 随序列长度线性增长。TP 主要切分权重与 Head，
+              不能自然降低每个 rank 持有的上下文 KV 容量。</p>
+          </article>
+          <article class="card">
+            <h3>目标</h3>
+            <p>把同一序列的 KV Token 分散到 DCP rank，在保持 Attention 数学语义和 TP 输出布局的同时，
+              降低单 rank KV Cache 压力，并复用现有 <code>kv_split_size</code> 的逻辑块机制。</p>
+          </article>
+          <article class="card">
+            <h3>当前范围</h3>
+            <p>GLM-5.x/GLM-5.2 共用的 MLA 路径、Decode 阶段、DSA Lighting Indexer
+              和跨层 Top-K 共享，以及 PD 分离部署中的 KV Cache 布局协商与重分片目标方案。</p>
+          </article>
+        </div>
+        <div class="grid grid-2" style="margin-top:18px">
+          <article class="card">
+            <h3>设计内</h3>
+            <ul class="checklist">
+              <li>DCP 配置贯穿 Master、Runtime Options 与 ParallelArgs</li>
+              <li>DCP ProcessGroup 建立与 rank 派生</li>
+              <li>异步 AllGather / AllToAll 通信封装</li>
+              <li>主 KV Cache 的 rank 归属和物理 Slot 重映射</li>
+              <li>MLA Decode 的局部计算、结果重排与 LSE 合并</li>
+              <li>主 KV Cache 与 DSA Index Cache 使用一致的上下文分片</li>
+              <li>GLM-5.2 DSA Top-K 跨层复用</li>
+              <li>Prefill CP/KV Split 到 Decode DCP 的 PD KV 重分片协议</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>非目标 / 暂未覆盖</h3>
+            <ul class="checklist">
+              <li>不改变 Prefill CP 的算法与通信</li>
+              <li>不在 Phase 1 支持 <code>tp_size &gt; dcp_size</code> 的完整计算几何</li>
+              <li>不改变 DSA Top-K 的选择语义和跨层复用关系</li>
+              <li>不改变用户请求、调度器或 OpenAI API 语义</li>
+              <li>不把本节 PD 重分片目标方案描述为当前代码已实现能力</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="terms">
+        <div class="section-kicker">03 / Ubiquitous language</div>
+        <h2>术语与设计原则</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>术语</th><th>含义</th><th>本设计中的职责</th></tr></thead>
+            <tbody>
+              <tr><td><strong>TP</strong></td><td>Tensor Parallel</td><td>切分模型权重与 Attention Head；最终输出仍需保持 TP shard 布局。</td></tr>
+              <tr><td><strong>CP</strong></td><td>Context Parallel</td><td>已有 Prefill/模型侧上下文并行概念；与 DCP 配置和执行阶段分离。</td></tr>
+              <tr><td><strong>DCP</strong></td><td>Decode Context Parallel</td><td>Decode 时按上下文 Token 切分主 KV，每组包含 <code>dcp_size</code> 个 rank。</td></tr>
+              <tr><td><strong>KV Split</strong></td><td>KV Cache 切分宽度</td><td>DCP 开启后由 Master 自动令 <code>kv_split_size = dcp_size</code>，使逻辑块扩大 D 倍。</td></tr>
+              <tr><td><strong>逻辑块</strong></td><td>调度/BlockManager 看到的块</td><td>大小为 <code>physical_block_size × dcp_size</code>，横跨一整个 DCP 组。</td></tr>
+              <tr><td><strong>物理块</strong></td><td>单 rank KV Cache 中的块</td><td>大小仍为 <code>physical_block_size</code>，只容纳本 rank 的 Token。</td></tr>
+              <tr><td><strong>Interleave</strong></td><td>Token 归属粒度</td><td>控制连续多少个 Token 归同一 rank；0 自动等于物理 block size。</td></tr>
+              <tr><td><strong>Partial O/LSE</strong></td><td>局部输出与 Log-Sum-Exp</td><td>每个 rank 在本地 KV 分片上计算，随后用于精确恢复全上下文 Softmax。</td></tr>
+              <tr><td><strong>Top-K State</strong></td><td>DSA 稀疏块表与长度</td><td>由 Full/Output 层产生，经 <code>DsaTopkTransfer</code> 传给 Shared 层复用。</td></tr>
+              <tr><td><strong>PD Reshard</strong></td><td>Prefill/Decode KV 布局转换</td><td>以 global token 为坐标，将源 KV Split 转换为目标 DCP owner/local slot。</td></tr>
+              <tr><td><strong>Staging</strong></td><td>有界、已注册的传输暂存区</td><td>承接多 writer Mooncake 写入，并在完成屏障后由 Decode scatter 到最终 Cache。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <strong>原则：</strong>配置职责清晰、Prefill 与 Decode 阶段隔离、主 KV 与 Index Cache
+          采用同源分片、全局 Top-K 语义不变、通信后恢复原 TP 布局、关闭 DCP 时行为退化为原路径。
+        </div>
+      </section>
+
+      <section id="architecture">
+        <div class="section-kicker">04 / System architecture</div>
+        <h2>总体架构</h2>
+        <p class="section-intro">
+          DCP 不是只存在于 Attention 层的局部优化。控制面负责把并行意图固化为
+          <code>ParallelArgs</code> 与 DCP 通信组；数据面负责 Slot、KV 和集合通信张量的移动；
+          模型面依据阶段选择执行路径，并以 <code>AttentionMetadata</code>、<code>KVCache</code>
+          和 <code>DsaTopkTransfer</code> 作为运行时接口。三者通过显式数据契约连接，不直接共享隐含布局。
+        </p>
+
+        <h3 style="margin-top:28px">三平面接口全景</h3>
+        <div class="diagram">
+          <div class="plane-map" role="img" aria-label="DCP 控制面、数据面和模型面的接口交互全景图">
+            <div class="plane-row">
+              <div class="plane-label">控制面<br>启动期</div>
+              <div class="plane-cell control">
+                <strong>① 用户配置</strong>
+                <p>CLI / JSON 写入 <code>dcp_size</code> 与
+                  <code>cp_kv_cache_interleave_size</code>。</p>
+              </div>
+              <div class="plane-cell control">
+                <strong>② Master / ParallelConfig</strong>
+                <p>校验 DCP，派生 <code>kv_split_size=dcp_size</code>，向 Engine/Worker
+                  Runtime Options 传播。</p>
+              </div>
+              <div class="plane-cell control">
+                <strong>③ CollectiveCommunicator</strong>
+                <p>按 TP rank 创建连续 DCP Group，设置当前 rank 的 group handle。</p>
+              </div>
+              <div class="plane-cell control">
+                <strong>④ ParallelArgs</strong>
+                <p>向 Worker 与模型只读暴露 size、rank、interleave、KV split 和
+                  <code>dcp_group_</code>。</p>
+              </div>
+            </div>
+
+            <div class="plane-contracts" aria-hidden="true">
+              <div class="contract-label">跨平面接口 ↓</div>
+              <div>Options</div>
+              <div>Runtime Options</div>
+              <div>ProcessGroup*</div>
+              <div>ParallelArgs</div>
+            </div>
+
+            <div class="plane-row">
+              <div class="plane-label data">数据面<br>请求期</div>
+              <div class="plane-cell data">
+                <strong>① Scheduler → Worker</strong>
+                <p><code>ForwardInput</code> 携带 positions、global cache slots、batch phase
+                  与 Block Table。</p>
+              </div>
+              <div class="plane-cell data">
+                <strong>② Slot 重映射</strong>
+                <p>Worker 计算 token owner/local slot；非本 rank Token 写成
+                  <code>-1</code>。</p>
+              </div>
+              <div class="plane-cell data">
+                <strong>③ DCP 集合通信</strong>
+                <p>Q 执行 AllGather；局部 O/LSE 按 Head 所有权分别执行 AllToAll。</p>
+              </div>
+              <div class="plane-cell data">
+                <strong>④ Rank-local Cache</strong>
+                <p>主 MLA KV 仅写本地 Slot；当前 Index Cache 仍通过恢复 Slot 保持全副本。</p>
+              </div>
+            </div>
+
+            <div class="plane-contracts" aria-hidden="true">
+              <div class="contract-label">跨平面接口 ↓</div>
+              <div>ForwardInput</div>
+              <div>AttentionMetadata.slot_mapping</div>
+              <div>AllGather/AllToAll AsyncCtx</div>
+              <div>KVCache + Block Table</div>
+            </div>
+
+            <div class="plane-row">
+              <div class="plane-label model">模型面<br>逐层执行</div>
+              <div class="plane-cell model">
+                <strong>① 阶段路由</strong>
+                <p><code>DeepseekV2AttentionImpl::forward()</code> 只在 Decode 且 DCP
+                  Group 有效时进入 <code>forward_dcp()</code>。</p>
+              </div>
+              <div class="plane-cell model">
+                <strong>② Query / Cache 写入</strong>
+                <p>生成 latent KV 和 Query；主 KV 使用 masked slot 写本地 Paged Cache。</p>
+              </div>
+              <div class="plane-cell model">
+                <strong>③ Local Attention</strong>
+                <p>完整 Query Heads 对本 rank 的 1/D 上下文执行 Decode，产生 Partial O/LSE。</p>
+              </div>
+              <div class="plane-cell model">
+                <strong>④ 精确恢复 TP 输出</strong>
+                <p>重分发后用稳定 LSE 合并所有上下文分片，再执行原有输出投影。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="callout info">
+          <strong>接口边界：</strong>控制面只描述拓扑，不搬运请求 KV；Worker 只负责把全局调度结果转换为
+          rank-local Slot，不决定 Attention 数学；模型面不重新推导 rank 拓扑，只消费
+          <code>ParallelArgs</code> 和请求元数据。这样关闭 DCP 时仍能回到原 Prefill/Decode 路径。
+        </div>
+
+        <h3 style="margin-top:30px">当前 Decode 请求的接口时序</h3>
+        <p class="muted">
+          下图按一次 Decode 层调用展开。横向按接口参与者排列，纵向是执行时间；
+          高亮单元格表示该阶段的主要动作，接口对象直接标在动作中。
+        </p>
+        <div class="diagram">
+          <div class="interaction-sequence" role="img" aria-label="当前 DCP Decode 请求接口时序图">
+            <div class="seq-head">阶段 / 接口</div>
+            <div class="seq-head">Worker Runtime</div>
+            <div class="seq-head">DeepseekV2Attention</div>
+            <div class="seq-head">DCP ProcessGroup</div>
+            <div class="seq-head">KV Cache / Kernel</div>
+
+            <div class="seq-label">0 · 启动期注入</div>
+            <div class="seq-cell active"><code>ParallelArgs</code><br>size / rank / interleave</div>
+            <div class="seq-cell active">保存 <code>dcp_group_</code><br>判定 <code>dcp_enabled_</code></div>
+            <div class="seq-cell active">已创建 group-local<br>rank 0..D-1</div>
+            <div class="seq-cell end">BlockManager 已按<br><code>kv_split_size=D</code> 分配</div>
+
+            <div class="seq-label">1 · 请求准备</div>
+            <div class="seq-cell active"><code>ForwardInput</code> + positions<br>重算 <code>new_cache_slots</code></div>
+            <div class="seq-cell active"><code>AttentionMetadata</code><br>接收 masked slot</div>
+            <div class="seq-cell">本阶段无通信</div>
+            <div class="seq-cell end">非 owner slot = -1<br>owner slot = local slot</div>
+
+            <div class="seq-label">2 · 阶段路由与写 Cache</div>
+            <div class="seq-cell">传入 Decode phase</div>
+            <div class="seq-cell active"><code>forward()</code> → <code>forward_dcp()</code><br>生成 Q / latent KV</div>
+            <div class="seq-cell active">Indexer 运行时临时<br>AllGather Slot</div>
+            <div class="seq-cell end">主 KV 分片写入；Index<br>当前按恢复 Slot 全量写入</div>
+
+            <div class="seq-label">3 · 局部 Attention</div>
+            <div class="seq-cell">等待模型层执行</div>
+            <div class="seq-cell active">整理完整 Query Heads</div>
+            <div class="seq-cell active">Q AllGather</div>
+            <div class="seq-cell end"><code>batch_decode</code><br>本地 KV → Partial O/LSE</div>
+
+            <div class="seq-label">4 · 输出归并</div>
+            <div class="seq-cell">接收本层输出</div>
+            <div class="seq-cell active">整理 Partial O/LSE<br>发起异步交换</div>
+            <div class="seq-cell active">O AllToAll<br>LSE AllToAll</div>
+            <div class="seq-cell end">返回按 TP Head<br>重分发的 Partial O/LSE</div>
+
+            <div class="seq-label">5 · 精确合并</div>
+            <div class="seq-cell">等待本层结果</div>
+            <div class="seq-cell active">迭代合并 D 份 Partial<br>再执行原 TP 输出投影</div>
+            <div class="seq-cell">本阶段无通信</div>
+            <div class="seq-cell end"><code>update_out_and_lse</code><br>恢复全上下文语义</div>
+
+            <div class="seq-label">6 · 跨层 Top-K</div>
+            <div class="seq-cell">持有请求级层状态</div>
+            <div class="seq-cell active"><code>DsaTopkTransfer</code><br>Output 发布 / Shared 复用</div>
+            <div class="seq-cell">当前不额外传完整 Index</div>
+            <div class="seq-cell end">复用已解析 Block Table<br>和 Context Length</div>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:18px">
+          <table>
+            <thead><tr><th>接口契约</th><th>生产者 → 消费者</th><th>传递内容</th><th>生效时机</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>ParallelArgs</code></td>
+                <td>CollectiveCommunicator → Worker / Model</td>
+                <td>DCP size/rank、interleave、KV split、<code>ProcessGroup*</code></td>
+                <td>进程启动后保持稳定</td>
+              </tr>
+              <tr>
+                <td><code>ForwardInput</code></td>
+                <td>Scheduler/Engine → Worker</td>
+                <td>phase、positions、全局 Slot、Block Table 与请求批次信息</td>
+                <td>每个模型执行步</td>
+              </tr>
+              <tr>
+                <td><code>AttentionMetadata</code></td>
+                <td>Worker/Metadata Builder → Attention</td>
+                <td>masked <code>slot_mapping</code>、序列长度、Block Table 与 DSA 元数据</td>
+                <td>每个 Attention 调用</td>
+              </tr>
+              <tr>
+                <td><code>KVCache</code></td>
+                <td>Runtime → Attention / Cache Kernel</td>
+                <td>rank-local 主 KV、量化 Scale，以及当前过渡态的 Index Cache</td>
+                <td>请求生命周期内持续读写</td>
+              </tr>
+              <tr>
+                <td><code>DsaTopkTransfer</code></td>
+                <td>DSA Output Layer → Shared Layer</td>
+                <td>已解析的 sparse Block Table 与 Context Length</td>
+                <td>相邻共享层之间</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:32px">PD 分离 + DCP 的目标架构（简版）</h3>
+        <div class="status-banner">
+          <span class="status-mark">尚未实现</span>
+          <div>
+            <strong>这是总体架构中的规划扩展，不代表当前分支已支持 PD+DCP 重分片。</strong>
+            <p>目标是在保持上述 Decode 三平面接口不变的前提下，在 P/D 之间增加布局协商、
+              多源传输和目标侧 Scatter；详细 Token 映射、数据契约与完成条件见
+              <a href="#pd-reshard">“PD 分离下的 DCP KV 重分片”</a>。</p>
+          </div>
+        </div>
+        <div class="diagram">
+          <div class="plane-map" role="img" aria-label="尚未实现的 PD 分离 DCP KV 重分片三平面目标架构">
+            <div class="plane-row">
+              <div class="plane-label">控制面<br>规划新增</div>
+              <div class="plane-cell control">
+                <strong>① P/D Layout 注册</strong>
+                <p>Prefill 发布 <code>C/S</code>、block/schema；Decode 发布 <code>D/I</code>
+                  与目标 rank mapping。</p>
+              </div>
+              <div class="plane-cell control">
+                <strong>② KVReshardPlan</strong>
+                <p>以 global token 为坐标计算 source writer、destination rank 与 local slot。</p>
+              </div>
+              <div class="plane-cell control">
+                <strong>③ Staging Ticket</strong>
+                <p>Decode 预分配有界 staging，返回 remote offset、capacity 与 generation。</p>
+              </div>
+              <div class="plane-cell control">
+                <strong>④ Ready / Recycle</strong>
+                <p>多 writer 完成屏障后发布 KV-ready；Scatter 完成才允许回收 ticket。</p>
+              </div>
+            </div>
+
+            <div class="plane-contracts" aria-hidden="true">
+              <div class="contract-label">规划接口 ↓</div>
+              <div>KVLayoutDescriptor</div>
+              <div>KVReshardPlan</div>
+              <div>KVStagingTicket</div>
+              <div>KVReadyEvent</div>
+            </div>
+
+            <div class="plane-row">
+              <div class="plane-label data">数据面<br>规划新增</div>
+              <div class="plane-cell data">
+                <strong>① Unique Prefill Writers</strong>
+                <p><code>cp_size=C</code> 中只选择 <code>kv_split_size=S</code>
+                  份唯一 KV shard，跳过 CP 副本。</p>
+              </div>
+              <div class="plane-cell data">
+                <strong>② Rank-local Gather / Pack</strong>
+                <p>writer 从本地 Paged KV 读取有效 Token，按目标 DCP rank 分桶。</p>
+              </div>
+              <div class="plane-cell data">
+                <strong>③ Mooncake Multi-writer</strong>
+                <p>多个源 writer 写入各 Decode rank 的独立 staging offset。</p>
+              </div>
+              <div class="plane-cell data">
+                <strong>④ Decode Scatter</strong>
+                <p>按计划把 staging 中的 Token 写入 <code>D/I</code> 对应的最终 local slot。</p>
+              </div>
+            </div>
+
+            <div class="plane-contracts" aria-hidden="true">
+              <div class="contract-label">Cache 语义 ↓</div>
+              <div>Prefill C + S</div>
+              <div>global-token canonical view</div>
+              <div>registered staging</div>
+              <div>Decode D + I</div>
+            </div>
+
+            <div class="plane-row">
+              <div class="plane-label model">模型面<br>复用现有</div>
+              <div class="plane-cell model">
+                <strong>Prefill 模型执行</strong>
+                <p>按 CP 计算并写出 S 份唯一主 KV；主 KV 与未来分片 Index 使用同一 Token owner。</p>
+              </div>
+              <div class="plane-cell model">
+                <strong>传输不改变数值</strong>
+                <p>Gather/Pack/Scatter 只转换物理布局，不改变 KV dtype、Layer 或 Token 语义。</p>
+              </div>
+              <div class="plane-cell model">
+                <strong>Decode 等待 KV-ready</strong>
+                <p>模型层第一次读取对应 Cache 前，必须观察到所有必要 role 完成。</p>
+              </div>
+              <div class="plane-cell model">
+                <strong>进入现有 forward_dcp</strong>
+                <p>目标 Cache 就绪后继续消费相同 <code>AttentionMetadata + KVCache</code> 接口。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="callout warn">
+          <strong>关键解耦点：</strong>PD 重分片应结束在“Decode rank-local KV Cache 已就绪”这一边界。
+          <code>forward_dcp()</code> 不感知 KV 来自本地 Prefill 还是远端 Prefill；它只依赖目标 Cache
+          已满足当前 <code>D/I</code> 布局。这样传输协议和 Attention 计算可以独立演进。
+        </div>
+      </section>
+
+      <section id="configuration">
+        <div class="section-kicker">05 / Configuration & topology</div>
+        <h2>配置链路与并行拓扑</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>配置</th><th>默认值</th><th>解析/传播</th><th>生效语义</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>dcp_size</code></td><td>1</td>
+                <td>ParallelConfig → Common Options → Master → Runtime Options → ParallelArgs</td>
+                <td>&gt;1 时建立 DCP Group，Decode Attention 进入 DCP。</td>
+              </tr>
+              <tr>
+                <td><code>cp_kv_cache_interleave_size</code></td><td>0</td>
+                <td>ParallelConfig → Master/Runtime Options → ParallelArgs</td>
+                <td>0 表示取 <code>block_size</code>；1 表示逐 Token 轮转；N 表示 N Token 一组。</td>
+              </tr>
+              <tr>
+                <td><code>kv_split_size</code></td><td>1</td>
+                <td>DCP 开启时由 Master 自动覆盖为 <code>dcp_size</code></td>
+                <td>BlockManager 的逻辑块大小扩大 D 倍，已有 KV Split/PD 元数据可继续复用。</td>
+              </tr>
+              <tr>
+                <td><code>cp_size</code></td><td>1</td>
+                <td>保持原配置链路</td>
+                <td>Prefill CP 概念；DCP 不应依赖其大于 1。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:28px">DCP Group 组织</h3>
+        <p class="muted">通信层当前把 TP rank 划成若干个连续的 DCP 子组，约束为
+          <code>tp_size % dcp_size == 0</code>。以 TP=8、DCP=4 为例：</p>
+        <div class="grid grid-2">
+          <div class="card">
+            <strong>DCP Group 0</strong>
+            <p><code>[tp_rank 0, 1, 2, 3]</code></p>
+            <span class="tag">group-local rank 0..3</span>
+          </div>
+          <div class="card">
+            <strong>DCP Group 1</strong>
+            <p><code>[tp_rank 4, 5, 6, 7]</code></p>
+            <span class="tag">group-local rank 0..3</span>
+          </div>
+        </div>
+        <div class="callout warn">
+          <strong>Phase 1 的真实约束更严格：</strong><code>forward_dcp()</code> 检查
+          <code>dcp_size × tp_heads == full_heads</code>，等价于 <code>tp_size == dcp_size</code>。
+          因此上面的 TP=8、DCP=4 仅说明通信组构造能力，当前 Attention 计算尚不能运行该组合。
+        </div>
+      </section>
+
+      <section id="cache">
+        <div class="section-kicker">06 / KV cache sharding</div>
+        <h2>KV Cache 切分与 Slot 重映射</h2>
+        <p class="section-intro">
+          BlockManager 分配全局逻辑块，Worker 在 Decode 执行前决定当前 Token 由哪个 DCP rank
+          持有，并把逻辑 Slot 压缩到该 rank 的物理块空间；非本 rank Token 映射为 -1，由
+          Paged Cache 写入 Kernel 跳过。
+        </p>
+        <div class="card">
+          <h3>映射公式</h3>
+          <pre>令 B = physical block_size, D = dcp_size, I = effective interleave_size
+V = B × D                                  // 一个 DCP 逻辑块的 Token 数
+v = position mod V                         // 逻辑块内偏移
+owner = floor(v / I) mod D                 // Token 所属 DCP rank
+local_offset = floor(v / (D × I)) × I + (v mod I)
+logical_block_id = old_slot / V
+physical_slot = logical_block_id × B + local_offset
+
+mapped_slot = (owner == dcp_rank) ? physical_slot : -1</pre>
+        </div>
+
+        <div class="grid" style="margin-top:18px">
+          <article class="card">
+            <h3>默认块级交错：B=4, D=2, I=4</h3>
+            <div class="mapping-case" aria-label="块级交错示例">
+              <strong>逻辑 Token 顺序</strong>
+              <div class="token-strip">
+                <div class="slot r0">pos 0<small>owner r0</small></div>
+                <div class="slot r0">pos 1<small>owner r0</small></div>
+                <div class="slot r0">pos 2<small>owner r0</small></div>
+                <div class="slot r0">pos 3<small>owner r0</small></div>
+                <div class="slot r1">pos 4<small>owner r1</small></div>
+                <div class="slot r1">pos 5<small>owner r1</small></div>
+                <div class="slot r1">pos 6<small>owner r1</small></div>
+                <div class="slot r1">pos 7<small>owner r1</small></div>
+              </div>
+              <strong>各 rank 的物理 Cache</strong>
+              <div class="rank-store">
+                <div class="store-label">rank 0</div>
+                <div class="slot r0">slot 0<small>pos 0</small></div>
+                <div class="slot r0">slot 1<small>pos 1</small></div>
+                <div class="slot r0">slot 2<small>pos 2</small></div>
+                <div class="slot r0">slot 3<small>pos 3</small></div>
+                <div class="store-label">rank 1</div>
+                <div class="slot r1">slot 0<small>pos 4</small></div>
+                <div class="slot r1">slot 1<small>pos 5</small></div>
+                <div class="slot r1">slot 2<small>pos 6</small></div>
+                <div class="slot r1">slot 3<small>pos 7</small></div>
+              </div>
+            </div>
+            <p class="muted">每连续 I=4 个 Token 归同一 rank。一个 8-Token 逻辑块拆成两个
+              4-Token 物理块，不发生 rank 间 Token 穿插。</p>
+          </article>
+          <article class="card">
+            <h3>Token 级交错：B=4, D=2, I=1</h3>
+            <div class="mapping-case" aria-label="Token 级交错示例">
+              <strong>逻辑 Token 顺序</strong>
+              <div class="token-strip">
+                <div class="slot r0">pos 0<small>owner r0</small></div>
+                <div class="slot r1">pos 1<small>owner r1</small></div>
+                <div class="slot r0">pos 2<small>owner r0</small></div>
+                <div class="slot r1">pos 3<small>owner r1</small></div>
+                <div class="slot r0">pos 4<small>owner r0</small></div>
+                <div class="slot r1">pos 5<small>owner r1</small></div>
+                <div class="slot r0">pos 6<small>owner r0</small></div>
+                <div class="slot r1">pos 7<small>owner r1</small></div>
+              </div>
+              <strong>各 rank 的物理 Cache（按本地 Slot 连续压缩）</strong>
+              <div class="rank-store">
+                <div class="store-label">rank 0</div>
+                <div class="slot r0">slot 0<small>pos 0</small></div>
+                <div class="slot r0">slot 1<small>pos 2</small></div>
+                <div class="slot r0">slot 2<small>pos 4</small></div>
+                <div class="slot r0">slot 3<small>pos 6</small></div>
+                <div class="store-label">rank 1</div>
+                <div class="slot r1">slot 0<small>pos 1</small></div>
+                <div class="slot r1">slot 1<small>pos 3</small></div>
+                <div class="slot r1">slot 2<small>pos 5</small></div>
+                <div class="slot r1">slot 3<small>pos 7</small></div>
+              </div>
+            </div>
+            <p class="muted">逻辑位置按 Token 轮转，进入各 rank 后再压缩成连续本地 Slot；
+              rank 0 保存偶数位置，rank 1 保存奇数位置，局部序列长度约为
+              <code>ceil(global_len / D)</code>。</p>
+          </article>
+        </div>
+
+        <div class="callout info">
+          <strong>为什么逻辑块扩大 D 倍：</strong>调度器仍使用一个统一的逻辑 Block ID，
+          但该块在 DCP 组内由 D 个 rank 的物理块共同承载。这样可复用已有 BlockManager、
+          KV Split 和 PD 拓扑信息，而无需让调度层理解每个 Token 的实际设备归属。
+        </div>
+      </section>
+
+      <section id="decode">
+        <div class="section-kicker">07 / Decode data path</div>
+        <h2>Decode 核心流程</h2>
+        <div class="flow">
+          <article class="flow-step">
+            <div class="flow-num">STEP 01</div>
+            <h3>本地 Q/KV 准备</h3>
+            <p>按 TP shard 计算 Q；生成 MLA latent KV。主 KV 仅写入本 rank 拥有的 Slot。</p>
+          </article>
+          <article class="flow-step">
+            <div class="flow-num">STEP 02</div>
+            <h3>Q AllGather</h3>
+            <p>DCP 组聚合各 TP rank 的 Query Heads，使每个 rank 获得完整 Head 集合。</p>
+          </article>
+          <article class="flow-step">
+            <div class="flow-num">STEP 03</div>
+            <h3>局部 Attention</h3>
+            <p>每个 rank 用全量 Q 对本地 1/D KV 上下文调用 MLU <code>batch_decode</code>。</p>
+          </article>
+          <article class="flow-step">
+            <div class="flow-num">STEP 04</div>
+            <h3>O/LSE AllToAll</h3>
+            <p>按 Head 维把每个 KV shard 的 Partial Output 和 LSE 发给对应 TP Head owner。</p>
+          </article>
+          <article class="flow-step">
+            <div class="flow-num">STEP 05</div>
+            <h3>稳定合并与投影</h3>
+            <p>逐 KV shard 合并 O/LSE，恢复全上下文 Softmax 结果，再执行常规输出投影。</p>
+          </article>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>阶段</th><th>代表性 Tensor 形状</th><th>布局变化</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>本地 Q</td>
+                <td><code>[T, Htp, Dh]</code></td>
+                <td>当前 TP rank 持有自己的 Query Heads。</td>
+              </tr>
+              <tr>
+                <td>Q AllGather 后</td>
+                <td><code>[D, T, Htp, Dh] → [T, D×Htp, Dh]</code></td>
+                <td>Phase 1 中 <code>D×Htp = Hfull</code>。</td>
+              </tr>
+              <tr>
+                <td>局部 Decode</td>
+                <td><code>Oᵣ: [T, 1, Hfull, L]</code><br><code>LSEᵣ: [T, Hfull, 1]</code></td>
+                <td>r 表示 KV context shard；每个 rank 计算所有 Head。</td>
+              </tr>
+              <tr>
+                <td>AllToAll 后</td>
+                <td><code>[D, T, 1, Htp, L]</code><br><code>[D, T, Htp, 1]</code></td>
+                <td>当前 rank 收到所有 KV shard 对自身 TP Heads 的局部结果。</td>
+              </tr>
+              <tr>
+                <td>合并后</td>
+                <td><code>[T, 1, Htp, L]</code></td>
+                <td>恢复当前 TP Head shard 的全上下文 Attention 输出。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:28px">LSE 合并为何是精确的</h3>
+        <div class="card">
+          <p>对于上下文分片 r，Kernel 返回局部归一化输出 Oᵣ 和
+            <code>LSEᵣ = log Σ exp(score)</code>。合并两个分片 a、b 时：</p>
+          <pre>m = max(LSEₐ, LSEᵦ)
+Z = exp(LSEₐ - m) + exp(LSEᵦ - m)
+O = (exp(LSEₐ - m) × Oₐ + exp(LSEᵦ - m) × Oᵦ) / Z
+LSE = m + log(Z)</pre>
+          <p>反复调用 MLU <code>update_out_and_lse</code> 即可在不收集原始 Attention Score
+            的情况下，数值稳定地得到与全上下文 Softmax 等价的结果。</p>
+        </div>
+      </section>
+
+      <section id="dsa">
+        <div class="section-kicker">08 / DSA integration</div>
+        <h2>DSA Index Cache 与 Top-K 共享</h2>
+        <p class="section-intro">
+          完整 DCP 方案中，主 MLA KV Cache 与 DSA Index Cache 都按照同一套 Token owner
+          和本地 Slot 规则切分。每个 rank 仅保存本地上下文的 KV 与 Index，Indexer 先产生本地候选，
+          再通过 DCP 集合通信恢复全局 Top-K 语义。当前分支采用的 Index 全副本与 Slot 恢复只是过渡实现，
+          不是最终设计。
+        </p>
+        <div class="grid grid-2">
+          <article class="card">
+            <span class="tag orange">Sharded</span>
+            <h3>主 MLA KV Cache</h3>
+            <p>继续使用 Worker 生成的 masked Slot Mapping；非本 rank Token 为 -1，
+              每个 rank 只写入自身拥有的 Token。</p>
+          </article>
+          <article class="card">
+            <span class="tag orange">Sharded</span>
+            <h3>DSA Index Cache</h3>
+            <p>使用与主 KV 相同的 masked Slot Mapping，只写入本 rank Token 的索引向量。
+              Indexer 参数可按原模型并行方式放置，但历史 Index 数据不再全量复制。</p>
+          </article>
+        </div>
+
+        <h3 style="margin-top:28px">分片 Indexer 与全局 Top-K</h3>
+        <div class="flow" style="grid-template-columns:repeat(5,minmax(150px,1fr))">
+          <article class="flow-step">
+            <div class="flow-num">01</div><h3>同源 Slot 分片</h3>
+            <p>主 KV 与 Index Cache 共用 owner、logical block 和 local slot 映射，生命周期保持一致。</p>
+          </article>
+          <article class="flow-step">
+            <div class="flow-num">02</div><h3>本地打分</h3>
+            <p>每个 rank 的 Indexer 只扫描本地 1/D Index Cache，计算本地候选分数。</p>
+          </article>
+          <article class="flow-step">
+            <div class="flow-num">03</div><h3>Local Top-K</h3>
+            <p>选出本地 K 个候选，携带 score、全局 token/block id 和 owner rank。</p>
+          </article>
+          <article class="flow-step">
+            <div class="flow-num">04</div><h3>候选 AllGather</h3>
+            <p>聚合 D×K 个候选并执行 Global Top-K；所有 rank 得到同一组全局选择。</p>
+          </article>
+          <article class="flow-step">
+            <div class="flow-num">05</div><h3>本地稀疏表</h3>
+            <p>按 owner 过滤全局结果，把全局 id 转为本地物理 block id，生成 rank-local block table。</p>
+          </article>
+        </div>
+
+        <div class="callout info">
+          <strong>通信量：</strong>不收集完整 Index Cache，只交换每个 rank 的 K 个候选。
+          只要每个 rank 保留至少全局目标数量 K 的本地候选，全局 Top-K 必然包含在候选并集中。
+          对相同分数需要规定稳定的二级排序键（例如全局 token id），保证各 rank 选择完全一致。
+        </div>
+
+        <h3 style="margin-top:28px">跨层 Top-K Transfer</h3>
+        <div class="diagram">
+          <div class="arch" style="grid-template-columns:1fr 65px 1fr 65px 1fr;min-width:780px">
+            <div class="arch-box orange"><strong>Full / Output Layer</strong><br>本地 Indexer + 候选汇聚，产生全局选择与本地 block table</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-box"><strong>DsaTopkTransfer</strong><br>每个 rank 发布其已解析的本地稀疏状态</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-box blue"><strong>Shared Layer</strong><br>复用本地 Top-K 状态，跳过 Indexer、Local Top-K 与候选通信</div>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>共享语义：</strong>全局 Top-K 是跨 rank 一致的逻辑选择，但每个 rank 保存的是
+          过滤和地址转换后的本地 block table。<code>DsaTopkTransfer</code> 在同一 rank 的层间传递
+          这份本地状态；Shared 层无需再次运行 Indexer 或参与候选 AllGather。局部 Attention 完成后，
+          仍沿用 O/LSE 合并恢复全局稀疏 Attention 结果。
+        </div>
+      </section>
+
+      <section id="pd-reshard">
+        <div class="section-kicker">09 / Disaggregated PD target design</div>
+        <h2>PD 分离下的 DCP KV 重分片</h2>
+        <p class="section-intro">
+          Prefill 同时使用 <code>cp_size=C</code> 与 <code>kv_split_size=S</code>，
+          Decode 使用 <code>dcp_size=D</code> 与 <code>interleave_size=I</code>。
+          两端的 KV owner、Block 几何和物理 Slot 可能不同，因此 PD 传输不能继续假定
+          “源物理块与目标物理块一一对应”，而要以 global token 为稳定坐标完成布局转换。
+        </p>
+
+        <div class="status-banner">
+          <span class="status-mark">尚未实现</span>
+          <div>
+            <strong>本节是目标设计，不是当前分支已有能力。</strong>
+            <p>当前代码已有 PD 请求编排、<code>kv_split_size</code> 注册、源 rank 连接、
+              整块 Mooncake 搬运和 DCP 本地 Slot 映射；但尚无 P/D Cache Layout 协商、
+              Reshard Plan、多 writer staging、本地 pack、Decode scatter 和多源完成屏障。
+              在这些能力完成前，不能宣称支持任意 <code>S → D</code> 的 PD+DCP 组合。</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:30px">为什么现有整块直传不足</h3>
+        <div class="diagram">
+          <div class="pd-bad-path">
+            <div><strong>Prefill Block</strong><br><code>src_block[k]</code></div>
+            <div class="cross">→</div>
+            <div><strong>当前假设</strong><br>等大小、同布局、完整块</div>
+            <div class="cross">✕</div>
+            <div><strong>DCP Target</strong><br>一个逻辑块被 D 个 rank<br>按 I 重新交错</div>
+          </div>
+        </div>
+        <div class="grid grid-3" style="margin-top:18px">
+          <article class="card">
+            <span class="tag">当前已具备</span>
+            <h3>源端 KV Split 路由</h3>
+            <p>PD 注册信息携带 Prefill 的有效 <code>kv_split_size</code>，Decode 可连接同一
+              TP slice 对应的多个 Prefill KV shard。</p>
+          </article>
+          <article class="card">
+            <span class="tag">当前已具备</span>
+            <h3>Block 级 Mooncake 传输</h3>
+            <p>现有 wrapper 可批量搬运等大小物理块，并按源 KV split rank 过滤和旋转目标 rank。</p>
+          </article>
+          <article class="card">
+            <span class="tag red">能力缺口</span>
+            <h3>布局感知重排</h3>
+            <p>协议没有目标 DCP Interleave，传输层也不能把一个源块拆成多个 token span，
+              再写入不同 Decode rank 的本地 Slot。</p>
+          </article>
+        </div>
+
+        <h3 style="margin-top:32px">三个正交维度</h3>
+        <div class="contract-grid">
+          <article class="contract">
+            <strong>Prefill 计算拓扑</strong>
+            <code>cp_size = C</code>
+            <p class="muted">决定 Prefill Token 如何参与计算并行，不应被传输层当作 KV 唯一分片数。</p>
+          </article>
+          <article class="contract">
+            <strong>Prefill Cache 布局</strong>
+            <code>kv_split_size = S</code>
+            <p class="muted">决定 KV 的唯一物理 owner。建议要求 <code>S | C</code>；
+              当 <code>C &gt; S</code> 时，其余 CP rank 可能持有副本，传输时只能选择一组唯一 writer。</p>
+          </article>
+          <article class="contract">
+            <strong>Decode Cache 布局</strong>
+            <code>dcp_size = D</code>
+            <code>interleave_size = I</code>
+            <p class="muted">共同决定 global token 应进入哪个 Decode rank，以及在该 rank 上的 local slot。</p>
+          </article>
+        </div>
+
+        <h3 style="margin-top:32px">KV Shard 与 KV Block 的关系</h3>
+        <p class="muted">
+          <strong>KV shard 是所有权概念，不是一个新的 Block 类型。</strong>
+          它描述某个 rank 在整条序列、所有逻辑 KV Block 中负责哪些 Token；
+          KV Block 则是 BlockManager 与 Paged Cache 实际分配、寻址和传输的空间单位。
+        </p>
+        <div class="diagram">
+          <div class="relation-map">
+            <div class="relation-box">
+              <strong>Logical KV Block</strong>
+              <code>V = B × S</code>
+              <p>调度器看到的连续 global-token 区间。示例中
+                <code>B=4, S=2</code>，一个逻辑块覆盖 pos 0..7。</p>
+            </div>
+            <div class="pd-arrow">→</div>
+            <div class="relation-box">
+              <strong>S 个 KV Shard</strong>
+              <p><code>shard 0</code> 和 <code>shard 1</code> 分担该逻辑块。
+                同一个 shard 还会继续拥有后续 logical block 中相同规则的切片。</p>
+            </div>
+            <div class="pd-arrow">→</div>
+            <div class="relation-box">
+              <strong>Rank-local Physical KV Blocks</strong>
+              <code>S × B tokens</code>
+              <p>每个 shard rank 为该逻辑块提供一个 B-Token 物理块；
+                物理 block id 可不同，global token mapping 才是稳定关系。</p>
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top:14px">
+          <table>
+            <thead><tr><th>概念</th><th>粒度</th><th>生命周期与关系</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>KV Shard</strong></td>
+                <td>rank / ownership</td>
+                <td>一个 shard 贯穿请求的多个 KV blocks 和多个 Layer；回答“哪些 Token 由哪张卡保存”。</td>
+              </tr>
+              <tr>
+                <td><strong>Logical KV Block</strong></td>
+                <td><code>B × S</code> global tokens</td>
+                <td>调度与序列 Block Table 的逻辑单位，由同一 shard group 上的 S 个物理块共同承载。</td>
+              </tr>
+              <tr>
+                <td><strong>Physical KV Block</strong></td>
+                <td><code>B</code> local tokens</td>
+                <td>单张卡上 Paged Cache 的分配与传输单位；一个 shard 通常拥有很多 physical blocks。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:32px">布局转换示例：C=4, S=2 → D=4, I=1</h3>
+        <p class="muted">
+          下图只画一个 8-Token 窗口。Prefill 有 4 个 CP rank，但只有 2 份唯一 KV shard；
+          每个 shard 在两个 CP replica group 中各有一份副本，传输时选择
+          <code>CP rank 0 + CP rank 2</code> 作为一组唯一 writer。Decode 采用 Token 级 DCP
+          交错，每个 rank 收到 2 个 Token，并压缩为连续本地 Slot。
+        </p>
+        <div class="shard-board" aria-label="Prefill KV split 到 Decode DCP 的重分片示例">
+          <strong>Prefill：4 张物理卡 / 4 个 CP rank</strong>
+          <div class="device-row">
+            <div class="device-card">
+              <strong>Card 0 · CP rank 0</strong>
+              <div class="device-meta">kv_split_rank=0 · replica_group=0 · WRITER</div>
+              <div class="mini-tokens">
+                <span class="p0">p0</span><span class="p0">p1</span>
+                <span class="p0">p2</span><span class="p0">p3</span>
+              </div>
+            </div>
+            <div class="device-card replica">
+              <strong>Card 1 · CP rank 1</strong>
+              <div class="device-meta">kv_split_rank=0 · replica_group=1 · SKIP</div>
+              <div class="mini-tokens">
+                <span class="p0">p0</span><span class="p0">p1</span>
+                <span class="p0">p2</span><span class="p0">p3</span>
+              </div>
+            </div>
+            <div class="device-card">
+              <strong>Card 2 · CP rank 2</strong>
+              <div class="device-meta">kv_split_rank=1 · replica_group=0 · WRITER</div>
+              <div class="mini-tokens">
+                <span class="p1">p4</span><span class="p1">p5</span>
+                <span class="p1">p6</span><span class="p1">p7</span>
+              </div>
+            </div>
+            <div class="device-card replica">
+              <strong>Card 3 · CP rank 3</strong>
+              <div class="device-meta">kv_split_rank=1 · replica_group=1 · SKIP</div>
+              <div class="mini-tokens">
+                <span class="p1">p4</span><span class="p1">p5</span>
+                <span class="p1">p6</span><span class="p1">p7</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="gather-band">
+            <strong>Prefill Gather / Pack</strong><br>
+            从 replica group 0 选择 Card 0（shard 0）与 Card 2（shard 1），
+            按 global position 恢复 canonical 逻辑顺序；Card 1/3 是副本，不重复贡献数据。
+          </div>
+
+          <strong>Gather 后的逻辑视图</strong>
+          <div class="shard-row">
+            <div class="shard-label">canonical tokens</div>
+            <div class="token-chip p0">pos 0<small>from card 0</small></div>
+            <div class="token-chip p0">pos 1<small>from card 0</small></div>
+            <div class="token-chip p0">pos 2<small>from card 0</small></div>
+            <div class="token-chip p0">pos 3<small>from card 0</small></div>
+            <div class="token-chip p1">pos 4<small>from card 2</small></div>
+            <div class="token-chip p1">pos 5<small>from card 2</small></div>
+            <div class="token-chip p1">pos 6<small>from card 2</small></div>
+            <div class="token-chip p1">pos 7<small>from card 2</small></div>
+          </div>
+
+          <div style="margin:20px 0 12px;color:var(--orange);font-weight:850">
+            ↓ 按目标 dcp_rank 重新分桶；Mooncake 发送到目标 staging；Decode scatter ↓
+          </div>
+
+          <strong>Decode：4 张物理卡 / 4 个 DCP rank 的本地 Cache</strong>
+          <div class="shard-row">
+            <div class="shard-label">DCP rank 0</div>
+            <div class="token-chip d0">pos 0<small>local 0</small></div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip d0">pos 4<small>local 1</small></div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+          </div>
+          <div class="shard-row">
+            <div class="shard-label">DCP rank 1</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip d1">pos 1<small>local 0</small></div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip d1">pos 5<small>local 1</small></div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+          </div>
+          <div class="shard-row">
+            <div class="shard-label">DCP rank 2</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip d2">pos 2<small>local 0</small></div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip d2">pos 6<small>local 1</small></div>
+            <div class="token-chip empty">—</div>
+          </div>
+          <div class="shard-row">
+            <div class="shard-label">DCP rank 3</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip d3">pos 3<small>local 0</small></div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip empty">—</div>
+            <div class="token-chip d3">pos 7<small>local 1</small></div>
+          </div>
+        </div>
+
+        <div class="callout info">
+          <strong>“Gather → Send → Split”的准确含义：</strong>Gather 是每个 Prefill writer
+          从 rank-local physical KV blocks 取出有效 Token，并在逻辑上恢复 global-token 顺序；
+          上图用一条 canonical 行表达 Gather 结果。推荐实现可由多 writer 分布式完成本地 Pack 和
+          目标分桶，不要求任意单卡实际保存整条 canonical KV。Send 是多 writer 通过 Mooncake
+          写入各目标 DCP rank；Split 是 Decode 将 staging 条目 scatter 到最终 local slot。
+          推荐路径不要求 Prefill 集合通信产生一份完整 KV，也不设置单一汇聚节点。
+        </div>
+
+        <h3 style="margin-top:32px">推荐数据面：多源 Pack → Staging → Scatter</h3>
+        <div class="diagram">
+          <div class="pd-pipeline">
+            <div class="pd-node source">
+              <strong>Prefill KV Writers</strong>
+              <p>每个 unique KV shard 只读取本地 Cache；CP 副本不参与重复发送。</p>
+            </div>
+            <div class="pd-arrow">→</div>
+            <div class="pd-node source">
+              <strong>Rank-local Pack</strong>
+              <p>按 cache role、layer chunk 和目标 dcp_rank 分桶，写入已注册的连续发送 staging。</p>
+            </div>
+            <div class="pd-arrow">→</div>
+            <div class="pd-node transport">
+              <strong>Mooncake Multi-writer</strong>
+              <p>每个 writer 写目标 rank staging 的独立 offset；Mooncake 只负责地址、长度和完成状态。</p>
+            </div>
+            <div class="pd-arrow">→</div>
+            <div class="pd-node target">
+              <strong>Decode Staging + Scatter</strong>
+              <p>等待所需 writers 到齐，按 global token → local slot 计划写入最终 DCP Cache。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="diagram" style="padding:0;border:0;background:transparent">
+          <div class="flow" style="grid-template-columns:repeat(6,minmax(145px,1fr));min-width:990px">
+            <article class="flow-step">
+              <div class="flow-num">01 / NEGOTIATE</div>
+              <h3>交换 Layout</h3>
+              <p>P/D 交换 block size、S/D/I、dtype、cache roles、rank mapping 与 layout version。</p>
+            </article>
+            <article class="flow-step">
+              <div class="flow-num">02 / ALLOCATE</div>
+              <h3>D 端预分配</h3>
+              <p>各 DCP rank 分配最终 local blocks 和有界 ring staging，返回 session 与目标描述。</p>
+            </article>
+            <article class="flow-step">
+              <div class="flow-num">03 / PLAN</div>
+              <h3>生成 Reshard Plan</h3>
+              <p>以 global token 计算 source owner、destination owner 和 destination local slot。</p>
+            </article>
+            <article class="flow-step">
+              <div class="flow-num">04 / PACK + PUSH</div>
+              <h3>本地打包直传</h3>
+              <p>每个唯一 writer 按目标 rank 打包，并写入 writer-specific staging offset。</p>
+            </article>
+            <article class="flow-step">
+              <div class="flow-num">05 / BARRIER</div>
+              <h3>多源完成屏障</h3>
+              <p>Decode 按 request/layer/chunk/role/rank 跟踪所需 writer，禁止读取未完成数据。</p>
+            </article>
+            <article class="flow-step">
+              <div class="flow-num">06 / SCATTER</div>
+              <h3>落入最终 Cache</h3>
+              <p>设备侧 scatter 到 DCP local slot；event 完成后发布 KV-ready 并回收 staging。</p>
+            </article>
+          </div>
+        </div>
+
+        <h3 style="margin-top:32px">控制面与数据契约</h3>
+        <div class="contract-grid">
+          <article class="contract">
+            <strong>KVLayoutDescriptor</strong>
+            <code>layout_version</code>
+            <code>block_size</code>
+            <code>cp_size</code>
+            <code>kv_split_size</code>
+            <code>dcp_size</code>
+            <code>interleave_size</code>
+            <p class="muted">同时携带 TP slice/rank mapping，禁止仅从 world size 推导 Cache owner。</p>
+          </article>
+          <article class="contract">
+            <strong>KVReshardChunk</strong>
+            <code>request_id</code>
+            <code>layer_id</code>
+            <code>chunk_id</code>
+            <code>cache_role</code>
+            <code>valid_tokens</code>
+            <code>writer_id</code>
+            <p class="muted">以若干 logical blocks 为窗口，最后一个 chunk 显式标记有效 Token 数。</p>
+          </article>
+          <article class="contract">
+            <strong>KVStagingTicket</strong>
+            <code>session_id</code>
+            <code>dst_rank</code>
+            <code>remote_offset</code>
+            <code>capacity</code>
+            <code>generation</code>
+            <p class="muted">generation 防止环形 staging offset 复用后，迟到传输污染新请求。</p>
+          </article>
+        </div>
+
+        <div class="table-wrap" style="margin-top:18px">
+          <table>
+            <thead><tr><th>Cache Role</th><th>目标布局</th><th>传输规则</th><th>Decode 可见条件</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>主 MLA KV</td>
+                <td>按 DCP owner/local slot 分片</td>
+                <td>使用统一 Reshard Plan 搬运每 Token 的 latent KV 与量化 Scale。</td>
+                <td>对应 layer/chunk 的所有 writer 完成，且 scatter event 完成。</td>
+              </tr>
+              <tr>
+                <td>DSA Index</td>
+                <td>与主 KV 同源分片</td>
+                <td>复用完全相同的 owner/local-slot 计划，只替换 bytes-per-token。</td>
+                <td>Index 与其 Scale 同时就绪；禁止只发布其中一个。</td>
+              </tr>
+              <tr>
+                <td>DSA Index Scale</td>
+                <td>跟随 Index Token</td>
+                <td>作为独立 role 或同一复合传输条目，不允许与 Index 错位。</td>
+                <td>与对应 Index generation 一致。</td>
+              </tr>
+              <tr>
+                <td>Top-K 状态</td>
+                <td>不从 Prefill 搬运</td>
+                <td>Decode 基于已分片 Index Cache 执行 Local Top-K 和候选汇聚。</td>
+                <td>由 Decode DSA 层内部生成。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:32px">完成条件与流水</h3>
+        <div class="diagram">
+          <div class="arch" style="grid-template-columns:1fr 48px 1fr 48px 1fr 48px 1fr;min-width:980px">
+            <div class="arch-box blue"><strong>Layer L / Chunk N</strong><br>P writers 完成本地 pack</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-box orange"><strong>RDMA in flight</strong><br>多个 writer 写独立 offset</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-box"><strong>Writer Barrier</strong><br>目标 rank 收齐 role 所需 writer</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-box"><strong>Scatter Event</strong><br>写最终 Cache → KV-ready → staging recycle</div>
+          </div>
+        </div>
+        <p class="muted">
+          Pack、RDMA 和 Scatter 可以按 layer/chunk 流水，但 Decode 第一次使用某层 Cache 前，
+          必须观察到该层所有必要 role 的 KV-ready。请求取消时要撤销未发布 ticket；
+          已在途写入通过 session generation 隔离，不能被后续请求误用。
+        </p>
+
+        <h3 style="margin-top:32px">推荐路径与保守 Fallback</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>方案</th><th>Gather 的位置</th><th>发送方式</th><th>定位</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>多 writer staging</strong></td>
+                <td>每个 Prefill writer 仅 pack 自己实际持有的 KV。</td>
+                <td>直接写各目标 DCP rank staging，目标侧 scatter。</td>
+                <td><span class="tag">正式目标方案</span>无完整 KV 副本、无单 leader/NIC 热点。</td>
+              </tr>
+              <tr>
+                <td>分 chunk AllGather</td>
+                <td>Prefill KV shard group 先恢复 canonical chunk。</td>
+                <td>由各 rank 分担目标 DCP shard 的 pack/send。</td>
+                <td><span class="tag orange">正确性 Fallback</span>仅在 source ownership 暂时无法显式描述时使用。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:32px">当前代码与目标设计的差距</h3>
+        <ul class="state-list">
+          <li><span class="tag">已有</span><span>PD 注册携带 Prefill <code>kv_split_size</code>，能够连接多个源 KV shard。</span></li>
+          <li><span class="tag">已有</span><span>DCP 已有 global position → owner/local slot 的运行时映射公式。</span></li>
+          <li><span class="tag red">未实现</span><span>P/D 双向 <code>KVLayoutDescriptor</code> 与显式 TP/CP/KV/DCP rank mapping。</span></li>
+          <li><span class="tag red">未实现</span><span>基于 global token/cache role 的通用 <code>KVReshardPlan</code>。</span></li>
+          <li><span class="tag red">未实现</span><span>Mooncake 可注册的 P/D staging pool、writer-specific offset 与 generation 生命周期。</span></li>
+          <li><span class="tag red">未实现</span><span>Prefill paged KV 本地 pack 和 Decode token-interleave scatter 设备 Kernel。</span></li>
+          <li><span class="tag red">未实现</span><span>多 writer completion barrier、KV-ready 发布以及取消请求时的安全回收。</span></li>
+          <li><span class="tag orange">过渡实现</span><span>DSA Index Cache 当前仍是全副本；目标 PD 路径要求它与主 KV 一起分片重排。</span></li>
+        </ul>
+
+        <h3 style="margin-top:32px">首版协议范围</h3>
+        <div class="grid grid-2">
+          <article class="card">
+            <h3>首版支持条件</h3>
+            <ul class="checklist">
+              <li>仅使用 Mooncake PUSH 数据面。</li>
+              <li>P/D physical block size、dtype 与 cache role schema 相同。</li>
+              <li><code>kv_split_size</code> 整除 Prefill <code>cp_size</code>。</li>
+              <li><code>interleave_size</code> 整除 Decode physical block size。</li>
+              <li>以 layer × logical-block chunk 限制临时显存。</li>
+              <li>主 KV、Index 与 Index Scale 共享一套 Token 映射。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>启动前拒绝的组合</h3>
+            <ul class="checklist risks">
+              <li>Layout version、block size、dtype 或 cache schema 不一致。</li>
+              <li>无法确定唯一 KV writer，可能导致 CP 副本重复发送。</li>
+              <li>目标 staging 容量不足或 rank mapping 不完整。</li>
+              <li>DSA Index 仍要求全副本，却误配置为分片接收。</li>
+              <li>跨布局 prefix cache 命中；首版不复用这类 Cache。</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="callout warn">
+          <strong>SGLang/Mooncake 参考说明：</strong>本文借鉴其多 writer、staging、
+          完成屏障和目标侧 scatter 的传输组织方式。但 xLLM DCP 需要解决的是
+          MLA 场景下的 Token Interleave 重分片，布局映射与数据契约仍需独立设计和实现。
+        </div>
+      </section>
+
+      <section id="changes">
+        <div class="section-kicker">10 / Branch status</div>
+        <h2>当前分支实现现状</h2>
+        <p class="section-intro">
+          当前分支已经打通 DCP 的框架控制面和主 Attention 数据面，可作为完整方案的参考原型；
+          DSA Index Cache 分片与分布式 Top-K 尚未按目标架构完成。
+        </p>
+        <div class="grid grid-3">
+          <article class="card">
+            <span class="tag">已具备</span>
+            <h3>框架与通信基础</h3>
+            <p>已有 <code>dcp_size</code>、Interleave 和 KV Split 配置，能够建立 DCP ProcessGroup，
+              并提供异步 AllGather / AllToAll 通信封装。</p>
+          </article>
+          <article class="card">
+            <span class="tag">已具备</span>
+            <h3>主 KV 与 Decode Attention</h3>
+            <p>Worker 能把逻辑 Slot 映射到 rank-local 物理 Slot；Decode 已实现 Q 聚合、
+              本地 KV Attention、O/LSE 重排与数值稳定合并。</p>
+          </article>
+          <article class="card">
+            <span class="tag">已具备</span>
+            <h3>Top-K 层间传递接口</h3>
+            <p><code>DsaTopkTransfer</code> 已接入 DCP Attention，能够表达 Output 层发布状态和
+              Shared 层复用状态，为后续分片 Top-K 结果复用保留了稳定接口。</p>
+          </article>
+          <article class="card">
+            <span class="tag orange">过渡实现</span>
+            <h3>DSA Index Cache</h3>
+            <p>当前代码仍把 Index Cache 作为全副本，并通过 Slot AllGather 恢复完整写入映射。
+              完整方案应改为与主 KV 同源分片，移除全量 Index 复制。</p>
+          </article>
+          <article class="card">
+            <span class="tag orange">尚待实现</span>
+            <h3>分布式 Global Top-K</h3>
+            <p>需要新增 Local Top-K、候选 score/id AllGather、稳定 Global Top-K，以及
+              global id 到 rank-local block table 的转换。</p>
+          </article>
+          <article class="card">
+            <span class="tag red">尚未实现</span>
+            <h3>PD 场景 KV 重分片</h3>
+            <p>现有 PD 只能表达源端 KV Split 和整块传输，尚不能将 Prefill
+              <code>cp_size + kv_split_size</code> 布局转换为 Decode 的 DCP Interleave 布局。
+              本文新增的 Layout 协商、多 writer staging 与 scatter 均属于目标设计。</p>
+          </article>
+          <article class="card">
+            <span class="tag blue">参考后端</span>
+            <h3>首个工程实现</h3>
+            <p>当前代码以 MLU 完成首轮算法验证和 Kernel 对接；本文描述的 DCP 拓扑、
+              Cache 分片与通信语义不绑定该后端，可作为后续设备实现的共同接口方案。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="modules">
+        <div class="section-kicker">11 / Module ownership</div>
+        <h2>模块职责与直接改动</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>层次</th><th>关键文件</th><th>职责</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>配置</td>
+                <td><code>xllm/core/framework/config/parallel_config.{h,cpp}</code><br>
+                    <code>xllm/core/common/options.{h,cpp}</code></td>
+                <td>声明 DCP/Interleave 参数、Flag/JSON 读写、日志展示。</td>
+              </tr>
+              <tr>
+                <td>启动与传播</td>
+                <td><code>xllm/core/distributed_runtime/master.cpp</code><br>
+                    <code>xllm/xllm.cpp</code></td>
+                <td>读取模型类型、设置全局 ParallelConfig、派生 KV Split，并向各类 Engine/Worker Options 传播。</td>
+              </tr>
+              <tr>
+                <td>并行拓扑</td>
+                <td><code>collective_communicator.{h,cpp}</code><br>
+                    <code>parallel_args.h</code></td>
+                <td>建立 DCP Group，保存 size/rank/group 与 Interleave 配置。</td>
+              </tr>
+              <tr>
+                <td>通信原语</td>
+                <td><code>parallel_state.h</code><br>
+                    <code>parallel_state_async.cpp</code></td>
+                <td>提供 launch/finish 两阶段 AllGather 和 AllToAll 封装；保持输入/输出生命周期。</td>
+              </tr>
+              <tr>
+                <td>Runtime</td>
+                <td><code>xllm/core/runtime/options.h</code><br>
+                    <code>xllm/core/runtime/worker_impl.{h,cpp}</code></td>
+                <td>在 Decode 执行前进行 DCP Slot 归属判断与物理 Slot 重映射。</td>
+              </tr>
+              <tr>
+                <td>Model/Layer</td>
+                <td><code>deepseek_v2_attention.{h,cpp}</code><br>
+                    <code>deepseek_v2_attention_dcp.cpp</code></td>
+                <td>阶段路由、DCP Attention 算法、当前 Index 过渡逻辑与 Top-K Transfer 接口；
+                  目标方案还需补充分片 Indexer 和 Global Top-K。</td>
+              </tr>
+              <tr>
+                <td>PD 控制面</td>
+                <td><code>xllm/proto/disagg_pd.proto</code><br>
+                    <code>disagg_pd_service_impl.cpp</code><br>
+                    <code>disagg_pd_scheduler.cpp</code></td>
+                <td><span class="tag red">待实现</span>交换 P/D Cache Layout、目标 staging ticket、
+                  rank mapping 与 chunk completion 元数据。</td>
+              </tr>
+              <tr>
+                <td>PD 重分片</td>
+                <td><code>framework/kv_cache_transfer/</code><br>
+                    <code>mooncake_kv_cache_transfer.cpp</code></td>
+                <td><span class="tag red">待实现</span>生成 global-token Reshard Plan，
+                  管理 staging pool，执行本地 pack、多 writer push、目标 scatter 和 KV-ready 屏障。</td>
+              </tr>
+              <tr>
+                <td>构建</td>
+                <td><code>CMakeLists.txt</code><br><code>scripts/build_support/env.py</code><br>
+                    <code>xllm/core/layers/mlu/CMakeLists.txt</code></td>
+                <td>发现 torch_mlu_ops，链接 DCP 源文件，兼容目标容器的 MLU API。</td>
+              </tr>
+              <tr>
+                <td>验证</td>
+                <td><code>tests/core/framework/parallel_state/parallel_state_test.cpp</code></td>
+                <td>真实 ProcessGroup 上验证新通信封装的数据语义。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="performance">
+        <div class="section-kicker">12 / Performance model</div>
+        <h2>性能与资源模型</h2>
+        <div class="grid grid-3">
+          <article class="card">
+            <h3>显存收益</h3>
+            <p>主 MLA KV Cache 与 DSA Index Cache 均从每 rank 完整持有降为约
+              <strong>1/D</strong>。模型权重和临时通信 Buffer 不随该比例下降。</p>
+          </article>
+          <article class="card">
+            <h3>计算变化</h3>
+            <p>每个 rank 由“本地 Head × 全上下文”变为“全 Head × 1/D 上下文”。
+              在 <code>TP=D</code> 时主要 Attention FLOPs 近似守恒，但 Kernel 形状与访存行为改变。</p>
+          </article>
+          <article class="card">
+            <h3>通信成本</h3>
+            <p>每层包含 1 次 Q AllGather + 2 次 AllToAll（O 和 LSE）。
+              Indexer 运行时再增加 1 次 D×K 候选 AllGather；Shared 层可复用本地稀疏状态，
+              省去 Indexer、Local Top-K 和候选通信。</p>
+          </article>
+        </div>
+        <div class="table-wrap" style="margin-top:18px">
+          <table>
+            <thead><tr><th>通信</th><th>近似载荷</th><th>频率</th><th>优化方向</th></tr></thead>
+            <tbody>
+              <tr><td>Q AllGather</td><td><code>T × Htp × Dh</code> / rank</td><td>每个 DCP Attention 层</td><td>与本地 KV 准备重叠；避免重复 contiguous。</td></tr>
+              <tr><td>O AllToAll</td><td><code>Hfull × T × L</code> / rank</td><td>每层</td><td>与 LSE A2A 并发或融合通信。</td></tr>
+              <tr><td>LSE AllToAll</td><td><code>Hfull × T</code> / rank，较小</td><td>每层</td><td>与 Output 打包成单次通信。</td></tr>
+              <tr><td>Top-K 候选 AllGather</td><td><code>K × (score + global id)</code> / rank</td><td>仅运行 Indexer 的层</td><td>只交换候选而非完整 Index；Shared 层复用结果。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout warn">
+          当前 <code>recompute_dcp_cache_slots()</code> 把 positions 和 slots 搬到 CPU 计算后再传回设备，
+          可能在小 Batch、逐 Token Decode 中放大同步开销。建议作为后续优化优先迁移到设备侧向量 Kernel，
+          或在调度阶段直接生成 rank-local Slot。
+        </div>
+        <div class="callout info">
+          <strong>PD 重分片新增成本：</strong>推荐路径不传输重复 KV，P→D 网络有效载荷仍约为一份
+          Prompt KV；额外成本来自 Prefill 本地 pack、Decode staging scatter、chunk 元数据与完成屏障。
+          staging 峰值由 <code>chunk_tokens × bytes_per_token × active_roles</code> 控制，
+          不随完整上下文长度线性预留。分 chunk AllGather Fallback 还会增加 Prefill 组内通信和 KV 副本。
+        </div>
+      </section>
+
+      <section id="compatibility">
+        <div class="section-kicker">13 / Compatibility & operations</div>
+        <h2>兼容性、启动与可观测性</h2>
+        <div class="grid grid-2">
+          <article class="card">
+            <h3>兼容矩阵</h3>
+            <div class="table-wrap">
+              <table>
+                <tbody>
+                  <tr><th>模型</th><td>本次适配聚焦 <code>glm_moe_dsa</code> / GLM-5.2 共用 MLA 层</td></tr>
+                  <tr><th>阶段</th><td>Decode：DCP；Prefill/Chunked Prefill：原路径</td></tr>
+                  <tr><th>默认行为</th><td><code>dcp_size=1</code> 时不创建 DCP Group，不改变 Attention</td></tr>
+                  <tr><th>并行几何</th><td>Phase 1：<code>tp_size == dcp_size</code></td></tr>
+                  <tr><th>KV 量化</th><td>保留 INT8 Cache Scale，并把量化参数传给 Decode Kernel</td></tr>
+                  <tr><th>DSA Index</th><td>目标方案与主 KV 同源分片，通过候选汇聚恢复 Global Top-K</td></tr>
+                  <tr><th>PD 分离</th><td>目标支持 Prefill <code>cp_size + kv_split_size</code>
+                    到 Decode <code>dcp_size + interleave_size</code>；当前代码尚未实现该布局转换</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+          <article class="card">
+            <h3>推荐启动约束</h3>
+            <pre># Phase 1 示例（参数名以 xLLM 当前 flags 为准）
+--tp_size=2
+--dcp_size=2
+--cp_size=1
+--cp_kv_cache_interleave_size=1
+
+# 默认兼容布局
+--cp_kv_cache_interleave_size=0</pre>
+            <p class="muted">建议启动日志同时打印 TP/DCP/CP、KV Split、Interleave Effective Value、
+              DCP Group ranks、模型类型和实例角色。</p>
+          </article>
+        </div>
+        <div class="card" style="margin-top:18px">
+          <span class="tag red">目标配置示意 · 当前不可直接运行</span>
+          <h3>PD 两端独立拓扑</h3>
+          <pre># Prefill instance：C=8 的计算并行，S=4 的唯一 KV 分片
+--instance_role=PREFILL
+--cp_size=8
+--kv_split_size=4
+--dcp_size=1
+
+# Decode instance：D=4 的 DCP，按 Token 交错
+--instance_role=DECODE
+--cp_size=1
+--dcp_size=4
+--cp_kv_cache_interleave_size=1</pre>
+          <p class="muted">只有当 Layout 协商、Reshard Plan、staging、pack/scatter 和完成屏障全部接入后，
+            上述异构 Cache 布局才应通过启动校验。当前应显式拒绝，而不是退化为可能错位的整块传输。</p>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p><strong>分析依据：</strong>Git 区间 <code>HEAD~6..HEAD</code>，即
+          <code>a00008ac</code>、<code>ec73de73</code>、<code>717e64ba</code>、
+          <code>0d0239ed</code>、<code>bddfc1b8</code>、<code>6d8db5ee</code>，
+          以及当前工作树中这些提交关联的 xLLM 配置、Runtime、Parallel State、Layer 与测试代码。</p>
+        <p>本文档为自包含 HTML，不依赖外部字体、脚本或网络资源，可直接在浏览器打开或打印为 PDF。</p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
