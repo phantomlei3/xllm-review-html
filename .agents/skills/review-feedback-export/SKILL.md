@@ -24,7 +24,7 @@ Turn the review content currently published on a merge-request page into a faith
 
 6. **Check completeness and the result.** Compare the document against the inventory: each in-scope comment appears once, excluded comments do not appear, and the stated counts/status match the page snapshot. Mention any inaccessible, collapsed, or otherwise unverified content as a scope limitation. Run `git diff --check` on the artifact and inspect the diff. Tests are unnecessary for a prose-only export unless requested.
 
-7. **Commit and push only within the user's requested scope.** Stage only the handoff and skill files relevant to the request. Commit when asked; push only when asked. Check `git status` before and after. If Git author identity is missing, inspect repository-local configuration and recent history; reuse an identity only when repository convention clearly establishes it, otherwise ask before inventing one.
+7. **Commit and push the completed export by default.** Unless the user explicitly asks for a draft, no commit, or no push, stage only the handoff and any skill changes made for this request, commit them, and push the current branch to its configured upstream. Before pushing, inspect the branch/upstream and all commits that would be published; report any pre-existing unpushed commits so the user can see what the push includes. Check `git status` before and after. If there is no configured upstream, do not guess a destination. If Git author identity is missing, inspect repository-local configuration and recent history; reuse an identity only when repository convention clearly establishes it, otherwise ask before inventing one.
 
 ## Lessons from review-page extraction
 
