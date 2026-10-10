@@ -7,9 +7,13 @@
 - 页面快照：Open；Conversation 显示 11；2 commits；5 files changed；Reviewing，要求 2 人批准；状态检查显示 4 项通过。
 - 页面显示的提交：`1187a3a`（perf: batch l3 cache store reads.）、`2dd7297`（perf: avoid cache read buffer copies and share get logic.）。审查总结注明完整 head `2dd7297756ce0f98753db9521cd95a72fd4a9679`，base `d01a46cce2ad975aa2343251e5c567ba59c73ddc`。
 - 导出时间：2026-10-10（Asia/Shanghai）
-- 提取范围：刷新已登录 Chrome 页面，展开“同类信息已隐藏”，记录当时已加载的作者说明、行级讨论、回复与审查总结。未应用 reviewer 或 resolution 筛选；保留所有展开后评论。
-- 状态说明：部分行级讨论旁显示 “No Processing Required” 和 “Resolved”。页面提取到的是动作/状态控件文本，无法确认其是否代表已完成的线程状态，因此不据此过滤；按原样记录。
+- 提取范围：原导出记录称已刷新已登录 Chrome 并展开隐藏评论。本次格式修正依据原文及本地页面文本快照，未重新访问实时页面；未应用 reviewer 或 resolution 筛选。
+- 状态说明：7 个行级线程的解决状态均未核实。快照只有动作/状态控件文本，不能据此判断已解决；独立评论的解决状态也未核实。
 - 范围限制：评论中的代码片段、锚点和页面可见时间均保留；本导出未独立验证评论中的代码结论。页面没有提供可见的日期，评论时间按页面显示原样记录。页面对话数显示 11，但展开后存在多个嵌套回复及汇总，故不将该数字当作评论条数。
+
+- 快照清单：13 条根评论（1 条作者说明、7 条行级意见、3 条独立意见、2 条审查总结）及 3 条回复，共 16 条。提交事件与页面控件不计入评论。
+- 元数据差异：页面及增量总结显示 5 个文件；邓英旭 17:39 总结称 19 个文件并提及 Kimi K3/NPU 删除。两份总结引用的 base/merge-base 也不同。本次保留各自原文，未核实差异原因，不将其中一份口径替换为另一份。
+- 原文保真：仅调整结构、表格与代码格式；评论中的结论、建议和缺失的类型字符未自行改写。下方索引是整理摘要，评论中的技术结论未经本次独立验证。
 
 ## 给修复 agent 的交接索引（摘要）
 
@@ -25,25 +29,32 @@
 | 行为分支测试覆盖 | `mooncake_store_backend.cpp:143-154, 171-174` | 评论认为前置校验整批失败与单 key 特判没有直接测试覆盖。 |
 | 审查结论 | MR 总结及增量总结 | 一份总结有条件推荐合并并要求目标环境测试；另一份增量总结列出 P2×5、建议优先处理批量失败隔离与日志。 |
 
-## 页面评论原文（按展开后的顺序）
+## 作者说明：收益与行为差别
 
-ext.luolei15
- commented 16:19
+- 作者：ext.luolei15
+- 时间：16:19（原页面显示）
+- 类型：独立根评论
+- 解决状态：未核实
+
+### 评论原文
+
 收益
 
 在磁盘为主的 64K 回放上有小幅收益：每个磁盘对象的读取耗时从约 1.65 ms 降到约 1.42 ms，prefetch省 0.3–0.6 s（6–13%）。
 
-文件	改动
-kv_cache_store.cpp	batch_get_with_status 先收集所有有效对象的 key 和缓冲区，再调一次 transport_->batch_get
-mooncake_store_backend.h/.cpp	新增接口 KVCacheStoreTransport（batch_put、batch_get）；MooncakeStoreBackend::batch_get 把多个 key 一次交给 batch_get_into_multi_buffers
-kv_cache_store.h	成员从 MooncakeStoreBackend backend_ 换成 KVCacheStoreTransport transport_，单测可以注入假后端
-kv_cache_store_test.cpp	覆盖批量状态映射、多 component、部分失败
+| 文件 | 改动 |
+| --- | --- |
+| kv_cache_store.cpp | batch_get_with_status 先收集所有有效对象的 key 和缓冲区，再调一次 transport_->batch_get |
+| mooncake_store_backend.h/.cpp | 新增接口 KVCacheStoreTransport（batch_put、batch_get）；MooncakeStoreBackend::batch_get 把多个 key 一次交给 batch_get_into_multi_buffers |
+| kv_cache_store.h | 成员从 MooncakeStoreBackend backend_ 换成 KVCacheStoreTransport transport_，单测可以注入假后端 |
+| kv_cache_store_test.cpp | 覆盖批量状态映射、多 component、部分失败 |
 
 行为差别：
 
-	基线	批量版
-每次 Mooncake Get 带的 key 数	1	一个预取 batch 的全部对象，默认 8
-64K 请求每个 rank 的 Get 调用次数	4095	512
+	| 指标 | 基线 | 批量版 |
+| --- | --- | --- |
+| 每次 Mooncake Get 带的 key 数 | 1 | 一个预取 batch 的全部对象，默认 8 |
+| 64K 请求每个 rank 的 Get 调用次数 | 4095 | 512 |
 
 命中判定没变：返回字节数必须等于期望字节数才算命中，多个 component 仍是全部命中才算逻辑命中。
 
@@ -54,149 +65,101 @@ kv_cache_store_test.cpp	覆盖批量状态映射、多 component、部分失败
 上限受盘限制。磁盘部分当前约 8 GiB/s，裸读上限约 10.2 GiB/s，剩余空间本来就不大。
 要明显缩短预取时间，得让单个 rank 的读盘并行，或者消除 8 个 rank 重复读同一份数据。
 
-Collapse
-ext.luolei15
-  added 2 commits  
-16:19
-P
- 
-perf: avoid cache read buffer copies and share get logic.
- 
- 
-2dd7297
-BY
- 
-perf: batch l3 cache store reads.
-   
-1187a3a
- 
-dengyingxu1
- 
-reviewed    16:21
-  View Changes
-3
-xllm/core/framework/kv_cache_transfer/kv_cache_store.h
-View file
-...
-...
-@@ -176,7 +176,8 @@
-177
-177
+## 行级意见 1：冗余的 backend_ 裸指针
 
-  std::map<BlockType, std::vector<StoreEntry>> store_index_;
-178
-178
+- 作者：dengyingxu1（邓英旭）
+- 时间：reviewed 16:21；评论显示 6 小时前（原页面显示）
+- 类型：行级根评论
+- 解决状态：未核实
+- 位置：`xllm/core/framework/kv_cache_transfer/kv_cache_store.h:179`
 
-  size_t max_entries_per_type_ = 0;
-179
--
-  std::unique_ptr<MooncakeStoreBackend> backend_;
-179
-+
-  std::unique_ptr<KVCacheStoreTransport> transport_;
-邓英旭  6 小时前
+### 页面代码摘录
+
+```cpp
+std::map<BlockType, std::vector<StoreEntry>> store_index_;
+size_t max_entries_per_type_ = 0;
+// 页面删除行：std::unique_ptr<MooncakeStoreBackend> backend_;
+// 页面新增行：
+std::unique_ptr<KVCacheStoreTransport> transport_;
+```
+
+### 评论原文
 
 1. 健壮性 — 冗余的裸指针 backend_ 位置：xllm/core/framework/kv_cache_transfer/kv_cache_store.h:179
 
 引入了 KVCacheStoreTransport 接口并将 transport_ 作为智能指针管理生命周期，但保留了 MooncakeStoreBackend* backend_ 裸指针。在 kv_cache_store.cpp 的读写逻辑中已全部使用 transport_，backend_ 似乎不再被使用。 如果 backend_ 确实不再使用，请删除它以简化状态管理；如果仍需调用 MooncakeStoreBackend 特有方法，建议将这些方法下沉到 KVCacheStoreTransport 接口中，避免破坏抽象层。
 
-No Processing Required
-Resolved
- 
-dengyingxu1
- 
-reviewed    16:21
-  View Changes
-58
-xllm/core/framework/kv_cache_transfer/kv_cache_store.cpp
-View file
-...
-...
-@@ -110,7 +111,10 @@
-110
-111
+## 行级意见 2：析构函数指针清理顺序
 
-  return config.rdma_devices;
-111
-112
+- 作者：dengyingxu1（邓英旭）
+- 时间：reviewed 16:21；评论显示 6 小时前（原页面显示）
+- 类型：行级根评论
+- 解决状态：未核实
+- 位置：`xllm/core/framework/kv_cache_transfer/kv_cache_store.cpp:113-116`
 
+### 页面代码摘录
+
+```cpp
+return config.rdma_devices;
 }
-112
-113
+```
 
-邓英旭  6 小时前
+### 评论原文
 
 2. 正确性 — 析构函数中的指针清理顺序 位置：xllm/core/framework/kv_cache_transfer/kv_cache_store.cpp:113-116
 
 析构函数中先执行 backend_ = nullptr; 再执行 transport_.reset();。虽然不会导致崩溃，但逻辑上应先释放资源再置空指针，或者由于对象即将销毁，直接移除 backend_ = nullptr;。 调整顺序为先 transport_.reset(); 再 backend_ = nullptr;，或直接移除对 backend_ 的置空操作。
 
-No Processing Required
-Resolved
- 
-dengyingxu1
- 
-reviewed    16:21
-  View Changes
-81
-xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp
-View file
-...
-...
-@@ -121,48 +121,75 @@
-152
-164
+## 行级意见 3：单次与批量成功判定复用
 
-        client_ptr_->batch_get_into_multi_buffers(keys,
-153
-165
+- 作者：dengyingxu1（邓英旭）
+- 时间：reviewed 16:21；评论显示 6 小时前（原页面显示）
+- 类型：行级根评论
+- 解决状态：未核实
+- 位置：`xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp:167-174`
 
-                                                  all_buffers,
-154
-166
+### 页面代码摘录
 
-                                                  all_sizes,
-155
-167
+```cpp
+client_ptr_->batch_get_into_multi_buffers(keys,
+                                          all_buffers,
+                                          all_sizes,
+                                          /*prefer_same_node=*/false);
+```
 
-                                                  /*prefer_same_node=*/false);
-邓英旭  6 小时前
+### 评论原文
 
 3. 复用 — batch_get 中单次与批量逻辑不一致 位置：xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp:167-174
 
 当 keys.size() == 1 时，使用 get_succeeded 判断成功；当 keys.size() > 1 时，使用内联表达式 results[index] >= 0 && results[index] == expected_bytes[index] 判断。这种不一致容易导致后续维护时行为分叉。 统一判断逻辑，提取一个内联函数或 lambda 复用，或者直接在所有情况下使用相同的内联逻辑（如果 get_succeeded 逻辑等价）。
 
-No Processing Required
-Resolved
- 
-dengyingxu1
- 
-reviewed    16:21
-  View Changes
-81
-xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp
-View file
-...
-...
-@@ -121,48 +121,75 @@
-139
-+
-  all_buffers.reserve(buffers.size());
-140
-+
-  all_sizes.reserve(buffers.size());
-141
-+
-  expected_bytes.reserve(buffers.size());
-142
-+
-  for (const MooncakeMultiBuffer& buffer : buffers) {
-邓英旭  6 小时前
+## 行级意见 4：单个 buffer 校验失败导致整批失败
+
+- 作者：dengyingxu1（邓英旭）
+- 时间：reviewed 16:21；评论显示 6 小时前（原页面显示）
+- 类型：行级根评论
+- 解决状态：未核实
+- 位置：`xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp:142-145`
+
+### 页面代码摘录
+
+```cpp
+all_buffers.reserve(buffers.size());
+all_sizes.reserve(buffers.size());
+expected_bytes.reserve(buffers.size());
+for (const MooncakeMultiBuffer& buffer : buffers) {
+```
+
+### 评论原文
 
 4. 健壮性 — 批量请求中单个 buffer 校验失败导致整批失败 位置：xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp:142-145
 
 在 batch_get 中，如果发现任何一个 buffer.addresses.size() != buffer.sizes.size()，直接返回全 0 的 statuses，导致整批请求失败。 确认这是否为预期行为。如果是快速失败机制，建议添加注释说明；如果希望跳过错误项继续处理，需修改为仅将该项结果置 0 并记录日志。
 
-马晓龙  3 小时前
+### 回复 — 马晓龙（快照显示名；账号映射未单独核实）
+
+- 时间：3 小时前（原页面显示）
+- 关系：回复本节行级根评论
 
 补充一个增量证据，回答「整批失败是否为批量机制的固有语义」：不是固有的，是 xllm 侧自身引入的。
 
@@ -215,39 +178,35 @@ View file
 
 （证据基线：head 2dd729775，xllm 侧结构差异由双版本源码逐行对照，Mooncake 逐 key 隔离由 third_party 源码证实。）
 
-邓英旭  3 小时前
+### 回复 — 邓英旭
+
+- 时间：3 小时前（原页面显示）
+- 关系：回复本节行级根评论
 
 针对你的疑问补充说明如下： [robustness] 批量请求中单个 buffer 校验失败导致整批失败 位置：xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp:142-145 问题：在 batch_get 中，如果发现任何一个 buffer.addresses.size() != buffer.sizes.size()，直接返回全 0 的 statuses，导致整批请求失败。 确认这是否为预期行为。如果是快速失败机制，建议添加注释说明；如果希望跳过错误项继续处理，需修改为仅将该项结果置 0 并记录日志。
 
 如果此处确属必要写法或有特殊上下文，欢迎进一步说明，我们会重新评估该条建议。
 
-No Processing Required
-Resolved
- 
-fengyan.119
- 
-reviewed    16:31
-  View Changes
-3
-xllm/core/framework/kv_cache_transfer/kv_cache_store.h
-View file
-...
-...
-@@ -176,7 +176,8 @@
-178
-178
+## 行级意见 5：backend_ 与 transport_ 双重状态
 
-  size_t max_entries_per_type_ = 0;
-179
--
-  std::unique_ptr<MooncakeStoreBackend> backend_;
-179
-+
-  std::unique_ptr<KVCacheStoreTransport> transport_;
-180
-+
-  MooncakeStoreBackend* backend_ = nullptr;
-冯艳  6 小时前
+- 作者：fengyan.119（冯艳）
+- 时间：reviewed 16:31；评论显示 6 小时前（原页面显示）
+- 类型：行级根评论
+- 解决状态：未核实
+- 位置：`xllm/core/framework/kv_cache_transfer/kv_cache_store.h:179-180`
+
+### 页面代码摘录
+
+```cpp
+size_t max_entries_per_type_ = 0;
+// 页面删除行：std::unique_ptr<MooncakeStoreBackend> backend_;
+// 页面新增行：
+std::unique_ptr<KVCacheStoreTransport> transport_;
+MooncakeStoreBackend* backend_ = nullptr;
+```
+
+### 评论原文
+
 【🟠 important】【🏛️ architecture】
 backend_ 与 transport_ 是同一对象的双重状态，失配后 tier 查询静默降级
 
@@ -259,18 +218,25 @@ backend_ 与 transport_ 是同一对象的双重状态，失配后 tier 查询�
 
 删除 MooncakeStoreBackend* backend_ 成员，让 KVCacheStore 只持有 transport_ 唯一所有权；把 batch_query_tiers 提升为 KVCacheStoreTransport 纯虚方法（virtual std::vector batch_query_tiers(const std::vectorstd::string&) = 0;），并将 kv_cache_store.cpp:448/455/506/517 四处 backend_ 改为 transport_。析构函数随之可去掉手工 backend_=nullptr / transport_.reset()。
 
-马晓龙  3 小时前
+> 整理注：上述建议签名在快照中已缺少模板类型字符，按原文保留，不能直接作为可编译代码。
+
+### 回复 — 马晓龙（快照显示名；账号映射未单独核实）
+
+- 时间：3 小时前（原页面显示）
+- 关系：回复本节行级根评论
 
 为该 important 结论补一条新实证证据（test-only，但一步之遥就是真 UAF）：
 
 测试 peer 的注入点在已 init 的 store 上构成悬垂指针（tests/core/framework/kv_cache_transfer/kv_cache_store_test.cpp:40-45）：
 
+```cpp
 static void attach_transport(
     KVCacheStore* store,
     std::unique_ptr<KVCacheStoreTransport> transport) {
   store->transport_ = std::move(transport);
   store->is_initialized_ = true;
 }
+```
 
 
 std::move 赋值会析构旧 transport 对象，而 backend_（kv_cache_store.h:179-180，生产 init() 在 kv_cache_store.cpp:100 设为 backend.get()）是非拥有别名、不会被清掉。对本 PR 之前已 init() 成功的 store 调用 attach_transport（换假后端重跑场景），随后 batch_exist（kv_cache_store.cpp:506/517）或带 stats 的 batch_get_with_status 走 tier 查询（:448/:455）即 use-after-free。现有测试只对未 init 的 store 注入（test.cpp:1252-1258），未踩中。
@@ -279,33 +245,25 @@ std::move 赋值会析构旧 transport 对象，而 backend_（kv_cache_store.h:
 
 （证据基线：head 2dd729775，UAF 路径由 move 赋值语义 + 别名不变的源码结构证明，未实际运行复现。）
 
-No Processing Required
-Resolved
- 
-fengyan.119
- 
-reviewed    16:31
-  View Changes
-20
-xllm/core/framework/kv_cache_transfer/mooncake_store_backend.h
-View file
-...
-...
-@@ -57,16 +57,30 @@
-81
-+
-  std::vector<uint8_t> batch_get(
-82
-+
-      const std::vector<std::string>& keys,
-83
-+
-      const std::vector<MooncakeMultiBuffer>& buffers) override;
-70
-84
+## 行级意见 6：删除无调用者的 get()
 
-  bool get(const std::string& key, const MooncakeMultiBuffer& buffer);
-冯艳  6 小时前
+- 作者：fengyan.119（冯艳）
+- 时间：reviewed 16:31；评论显示 6 小时前（原页面显示）
+- 类型：行级根评论
+- 解决状态：未核实
+- 位置：`xllm/core/framework/kv_cache_transfer/mooncake_store_backend.h:84`
+
+### 页面代码摘录
+
+```cpp
+std::vector<uint8_t> batch_get(
+    const std::vector<std::string>& keys,
+    const std::vector<MooncakeMultiBuffer>& buffers) override;
+bool get(const std::string& key, const MooncakeMultiBuffer& buffer);
+```
+
+### 评论原文
+
 【🔵 minor】【🧹 dead-code】
 MooncakeStoreBackend::get 已无任何调用者，应删除
 
@@ -317,33 +275,26 @@ MooncakeStoreBackend::get 已无任何调用者，应删除
 
 删除 mooncake_store_backend.h:84 的 bool get(const std::string& key, const MooncakeMultiBuffer& buffer); 声明和 mooncake_store_backend.cpp:189-193 的定义；单 key 语义已由 batch_get 的 keys.size()==1 路径完整覆盖。
 
-No Processing Required
-Resolved
- 
-fengyan.119
- 
-reviewed    16:31
-  View Changes
-81
-xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp
-View file
-...
-...
-@@ -121,48 +121,75 @@
-169
-+
-      LOG(ERROR) << "Mooncake Get returned extra result items.";
-158
-170
+## 行级意见 7：删除单 key 特判
 
-    }
-159
--
-    return get_succeeded(expected_bytes, results);
-171
-+
-    if (keys.size() == 1) {
-冯艳  6 小时前
+- 作者：fengyan.119（冯艳）
+- 时间：reviewed 16:31；评论显示 6 小时前（原页面显示）
+- 类型：行级根评论
+- 解决状态：未核实
+- 位置：`xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp:171-174`
+
+### 页面代码摘录
+
+```cpp
+LOG(ERROR) << "Mooncake Get returned extra result items.";
+}
+// 页面删除行：return get_succeeded(expected_bytes, results);
+// 页面新增行：
+if (keys.size() == 1) {
+```
+
+### 评论原文
+
 【🔵 minor】【🔧 refactor】
 keys.size()==1 特判重复通用循环的成功判定，应删除
 
@@ -355,30 +306,46 @@ batch_get 在 keys.size()==1 时经 get_succeeded(expected_bytes.front(), result
 
 删除 mooncake_store_backend.cpp:171-174 的 if (keys.size() == 1) { ... return statuses; } 特判，单 key 请求直接落入通用循环；get_succeeded 仍作为 private 静态谓词供 get() 包装与单测复用。
 
-No Processing Required
-Resolved
-dengyingxu1
- commented 17:39
+## 审查总结 1：dengyingxu1
+
+- 作者：dengyingxu1
+- 时间：17:39（原页面显示）
+- 类型：独立根评论
+- 解决状态：未核实
+
+### 评论原文
 
 MR #466 评审结论：基于 base d01a46cce2ad975aa2343251e5c567ba59c73ddc、head 2dd7297756ce0f98753db9521cd95a72fd4a9679，检查 2 个提交及 19 个改动文件，重点覆盖 Mooncake KV cache store 的批量读取、transport 生命周期、结果聚合与相关单测，以及同步删除的 Kimi K3/NPU 自定义算子代码。静态检查未发现可确认的 P0-P3 缺陷，因此未发布 inline finding。已执行 git diff --check（通过）和 python3 -m compileall -q xllm/python/kernels_npu/_custom_op.py（通过）；未执行 C++ 构建/单测，未执行 Mooncake、NPU、ATB、ACL Graph、HCCL、CUDA 或推理运行。合并建议：有条件推荐合并，条件是完成目标环境 C++/Mooncake 批量 KV 读写测试及相关运行时冒烟验证。
 
-maxiaolong.maxwell
- commented 18:57
+## 独立意见 8：错误日志丢失 key 上下文
+
+- 作者：maxiaolong.maxwell
+- 时间：18:57（原页面显示）
+- 类型：独立根评论
+- 解决状态：未核实
+- 位置：`xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp:129,144,152,169,182,184`
+
+### 评论原文
+
 【🔵 P2】【operability】commit2 重构丢失错误日志的 key 上下文——单 key 路径并非与基线「逐字节等价」的可观察行为
 
 位置：xllm/core/framework/kv_cache_transfer/mooncake_store_backend.cpp:129,144,152,169,182,184
 
 head batch_get 的所有错误出口全部不带 key、不带 keys.size()：
 
+```cpp
 LOG(ERROR) << "Invalid Mooncake multi-buffer batch Get request.";   // :129
 LOG(ERROR) << "Mismatched Mooncake Get buffer addresses and sizes."; // :144
 LOG(ERROR) << "Mooncake Get exceeds int32 result range.";            // :152
 LOG(ERROR) << "Mooncake batch Get failed: " << error.what();         // :182
+```
 
 
 基线（base mooncake_store_backend.cpp:128,137,143,161）每条都带 key：
 
+```cpp
 LOG(ERROR) << "Mooncake Get failed for key=" << key << ": " << error.what();
+```
 
 
 commit2 把 get() 收敛为 batch_get({key},{buffer}) 薄包装时，错误文案随旧实现一起被替换。MR 描述称 get 逻辑共享后单 key 路径与基线等价——对返回值成立，对错误输出不成立。叠加整批 catch 语义后，线上排障表现为「一个 chunk 全 miss + 一行不知道谁引起的 ERROR」。
@@ -387,15 +354,23 @@ commit2 把 get() 收敛为 batch_get({key},{buffer}) 薄包装时，错误文�
 
 （证据基线：head 2dd729775，双版本源码逐行对照；无运行时日志样本。）
 
-Collapse
-maxiaolong.maxwell
- commented 18:58
+## 独立意见 9：transport 返回值契约
+
+- 作者：maxiaolong.maxwell
+- 时间：18:58（原页面显示）
+- 类型：独立根评论
+- 解决状态：未核实
+- 位置：`mooncake_store_backend.h:60-69；kv_cache_store.cpp:483-487`
+
+### 评论原文
+
 【🔵 P2】【architecture】新接口 KVCacheStoreTransport 未定义返回值契约，消费端静默容忍短结果向量
 
 位置：mooncake_store_backend.h:60-69（接口）；kv_cache_store.cpp:483-487（消费端）
 
 接口只定义了签名，没有契约注释；消费端散射循环用 index < results.size() 做防御：
 
+```cpp
 const std::vector<uint8_t> results =
     transport_->batch_get(get_keys, get_buffers);
 for (size_t index = 0;
@@ -403,6 +378,9 @@ for (size_t index = 0;
      ++index) {
   const size_t request_index = get_request_indices[index];
   physical_results[request_index] = results[index] != 0;
+```
+
+> 整理注：此处是页面中的部分循环摘录，快照未包含结尾花括号。
 
 
 未来任一 transport 实现（本 PR 的核心目的就是引入注入点）返回空/短 vector 时，短出的对象全部静默 miss 且无日志；返回顺序与 keys 不对齐则产生错误的命中图。两个现有实现都返回 keys.size() 长度（mooncake_store_backend.cpp:127、kv_cache_store_test.cpp:194），但接口本身不强制。
@@ -415,9 +393,16 @@ batch_put 的对应循环（:397-399 同样模式）一并处理。
 
 （证据基线：head 2dd729775；两个现有实现守约已证明，「未来实现违约」是工程推断而非已发生缺陷，故定 P2。）
 
-Collapse
-maxiaolong.maxwell
- commented 18:58
+## 独立意见 10：行为分支测试覆盖
+
+- 作者：maxiaolong.maxwell
+- 时间：18:58（原页面显示）
+- 类型：独立根评论
+- 解决状态：未核实
+- 位置：`mooncake_store_backend.cpp:143-146,151-154,171-174；kv_cache_store_test.cpp:130-150`
+
+### 评论原文
+
 【🔵 P2】【test coverage】本 PR 引入的两个行为差异分支（整批前置校验失败、单 key 特判）在测试集零覆盖
 
 位置：mooncake_store_backend.cpp:143-146,151-154,171-174（被测缺失分支）；tests/core/framework/kv_cache_transfer/kv_cache_store_test.cpp:130-150（MooncakeStoreBackendTestPeer 现有暴露面）
@@ -431,25 +416,23 @@ RestoresBatchBlocksWithIndependentMisses（:590-622）走真 Mooncake 的部分�
 
 （证据基线：head 2dd729775；「CI 通过不代表分支被覆盖」由测试集源码遍历证明——无其他 TEST 触达 batch_get。）
 
-maxiaolong.maxwell
- commented 18:58
+## 审查总结 2：增量 findings
+
+- 作者：maxiaolong.maxwell
+- 时间：18:58（原页面显示）
+- 类型：独立根评论
+- 解决状态：未核实
+
+### 评论原文
+
 MR #466 独立评审结论（增量 findings）
 
 基于 head 2dd729775、merge-base 6be006116（2 commits / 5 files / +298 -49），对批量 L3 store 读取、KVCacheStoreTransport 抽象、结果聚合与单测做了独立审查，并与本 MR 已有 8 条讨论严格去重（backend_/transport_ 双状态、析构顺序、单 key 特判、get() 死代码等已有讨论不重复发布）。结论：With fixes（可合入）——P0=0，P1=0，P2×5：
 
-[回复 note:3457280] 批量 Get 失败隔离粒度从单对象变整批：整批失败并非批量机制固有——Mooncake client 内部逐 key 出结果（负错误码路径 head 已等价映射），只有 xllm 侧包住全部 key 的 catch-all 把异常放大为整 chunk 全 miss；前置校验两分支从生产调用方看不可达。
-[本条新评论] commit2 错误日志丢失 key 上下文：base 每条 ERROR 带 key，head 全部通用文案——单 key 路径对返回值等价、对可观察日志不等价。
-[本条新评论] KVCacheStoreTransport 未定义返回值契约：散射循环 index < results.size() 静默容忍短结果，未来注入实现违约即静默降级；建议 CHECK_EQ + 接口注释。
-[回复 note:3457305] attach_transport 测试注入点构成悬垂实证：move 赋值析构旧 transport 而 backend_ 别名不清——已 init 的 store 上注入即 UAF，是双状态问题的最直接实证。
-[本条新评论] 两个行为差异分支测试零覆盖：整批前置校验失败与单 key 特判在 head 测试集不可达（MooncakeStoreBackendTestPeer 无法注入不合法输入）。
+- [回复 note:3457280] 批量 Get 失败隔离粒度从单对象变整批：整批失败并非批量机制固有——Mooncake client 内部逐 key 出结果（负错误码路径 head 已等价映射），只有 xllm 侧包住全部 key 的 catch-all 把异常放大为整 chunk 全 miss；前置校验两分支从生产调用方看不可达。
+- [本条新评论] commit2 错误日志丢失 key 上下文：base 每条 ERROR 带 key，head 全部通用文案——单 key 路径对返回值等价、对可观察日志不等价。
+- [本条新评论] KVCacheStoreTransport 未定义返回值契约：散射循环 index < results.size() 静默容忍短结果，未来注入实现违约即静默降级；建议 CHECK_EQ + 接口注释。
+- [回复 note:3457305] attach_transport 测试注入点构成悬垂实证：move 赋值析构旧 transport 而 backend_ 别名不清——已 init 的 store 上注入即 UAF，是双状态问题的最直接实证。
+- [本条新评论] 两个行为差异分支测试零覆盖：整批前置校验失败与单 key 特判在 head 测试集不可达（MooncakeStoreBackendTestPeer 无法注入不合法输入）。
 
 建议合入前处理 1+2（同一函数内小改动），3-5 可作 follow-up。另核对通过项：状态散射索引对齐、空 batch 双层防护、commit2 返回值逐分支等价（除日志外）、CMake 测试目标接线、并发模型与基线无差异。另有 5 项证据不足的疑点（生产异常频率、性能数字、CI 实跑记录等）未发布，可按需提供。
-
- 收起同类信息
-Reviewing
-
-Review rules: 2 are required to approve
-
-Status check
-
-Pipelines will affect the merge status。
