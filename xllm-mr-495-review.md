@@ -170,7 +170,7 @@ main 上这条恢复路径有两个问题：
 
 ##### 补充测试
 
-- MTP与Mooncake Store补充测试：  
+- MTP与Mooncake Store补充测试：
   MTP（K=3）：192/192 成功，探针 40/40，恢复失败 0，所有进程存活。PrefillFirst 下的成批恢复和准入暂停都工作正常。
 - Mooncake Store（P、D 都开，host\_blocks\_factor=2）：三组共 576 个请求全部成功，探针全对。decode 上传的 KV 全部写入成功，没有 store 报错。性能与不开 store 相比在单轮波动范围内（吞吐低 2–4%）。
 
@@ -417,4 +417,3 @@ main 上这条恢复路径有两个问题：
   - 测试矩阵覆盖 FIFO per-rank、idle-fail、取消、准入暂停/重开、MTP/kv\_split 重开、404 回滚等 19+7 用例，用真实 BlockManagerPool + DP=2。
 - **发现问题**（各条已单独评论）：1 条 P2 与 dengyingxu1 已有 inline finding 同点（本审查独立验证成立，并给出更精确的修复边界——见补充评论）；3 条 P3（MR 描述滞后 head 三处、cached\_tokens 截断静默无观测、admit 持锁串行化）；2 条 Question（60s 超时删除论证验证成立但缺等待时长日志、测试缺口）。
 - **合并建议**：处理 P2 容量口径（建议收窄到「非恢复 prefill 序列」而非原 inline 的一刀切，理由见补充评论）+ 修订 MR 描述后合入；F3/Q1/Q2 可后续跟进。
-
