@@ -1,91 +1,45 @@
-# xLLM MR #636 — Review 意见与修复交接
+# xLLM MR #636 — Force-push 后的 Review 意见与修复交接
 
 - 来源：[MR #636](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636)
 - 标题：`bugfix: reject oversized vlm inputs before worker dispatch.`
 - 分支：`bugfix/vlm_oversize` → `main`
-- 页面提交列表首项：`1ba509d230c3a878d42d9defb7f61c0f5c915716`；另一个提交为 `e34a33a3f081cbaf67613f9842b4d70f7f74a1a5`。R14 也将首项标为 head，未另查仓库确认。
-- 页面状态：Open / Reviewing；2 commits、24 files changed；要求 2 人批准，3 项状态检查通过、1 项失败，尚未满足合并要求。失败项为 xLLM服务CI流水线 #9271455。
-- 提取时间：2026-10-30 14:38:49（Asia/Shanghai）；通过已登录 Chrome 刷新页面、等待讨论加载后读取。提交前于 2026-10-30 14:39:46 再次刷新，核对 14 条根评论的正文、时间、锚点及讨论控件未变。
-- 筛选：不按评审者、时间或解决状态过滤；包含作者说明、全部已发布行级意见及独立评审小结，不含提交或无评论正文的 reviewed 事件，不含草稿。
-- 清单：14 条根评论（1 条作者说明、12 条行级意见、1 条 Review 小结），0 条回复；页面 Conversation 13 不作为根评论总数。
-- 范围：已逐条核对会话中的讨论正文和回复位置，未见隐藏同类评论、过期线程、分页或加载更多讨论入口。另打开 Files Changed 核对为 24 个变更文件；该视图存在按视口加载及 Load Diff 入口，未逐一加载全部文件 diff，未独立验证是否存在会话外讨论。
-- 状态说明：12 条行级讨论均只见 “No Processing Required” 和 “Resolved” 操作按钮，未见明确解决事件，逐条标为“状态未核实”；作者说明和独立小结未见解决状态标记。
-- 原文说明：评审者的技术判断、严重性及测试声明未经导出者独立验证。R05 原文以未闭合的反引号和 `CHECK` 结束，未补全。R14 称“已有未解决 P2 讨论”，但当前可见的 12 条行级意见未明确标注 P2，且无法从各线程确认解决状态；保留该小结，不据此替各线程定级或判定状态。部分行级锚点位于 include 或函数签名，与评论讨论的实现位置不同，以下同时保留页面锚点及原文位置。
+- 时间边界：罗磊 (ext.luolei15) 于 **2026-10-30 15:39:59（Asia/Shanghai）** force-pushed，分支从 [`1ba509d`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/commit/1ba509d230c3a878d42d9defb7f61c0f5c915716) 更新到 [`514fd75`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/commit/514fd75378cbf5bec6618b2010d7f04a9ebb0d13)。仅收录严格晚于该事件发布的 review 评论。
+- 当前页面提交列表首项：`514fd75378cbf5bec6618b2010d7f04a9ebb0d13`；其余为 `9f576b804a7c916e615cc0c3f5558ac52a788223`、`875b51ad36bdbbb2d72cb0dabbb107d647145a29`、`7cd3848dcea5a00f0864dacfc761dbabeae1a717`。已打开 Commits 页核对，未另查仓库确认 head。
+- 页面状态：Open / Reviewing；4 commits、27 files changed；要求 2 人批准，3 项状态检查通过、1 项运行中（xLLM服务CI流水线 #9271455），尚未满足合并要求。
+- 提取时间：2026-10-30 17:39:45（Asia/Shanghai）；通过已登录 Chrome 刷新页面，点击 show more 加载后续记录，并展开全部 Show conversation 后读取。提交前于 2026-10-30 17:41:26 再次刷新、加载并展开讨论，核对评论正文、时间、锚点和解决标记未变。
+- 筛选：移除该 force-push 之前的全部 14 条根评论（包括旧作者说明、旧行级意见及旧评审小结），不附旧评论正文；本轮不按评审者或解决状态过滤，保留已解决讨论。旧评论后来被标为已解决不会使其进入本轮范围。
+- 清单：页面已加载正文共 26 条根评论、0 条回复；本次纳入 **12 条根评论，全部为行级意见，0 条回复**，其中邓英旭 6 条、冯艳 6 条；无本轮独立评审小结。页面 Conversation 25 不作为根评论总数。
+- 状态说明：R02、R05、R06、R07、R08 的线程明确显示由罗磊标为 Resolved，记为“已解决”；其余 7 条只有处理动作按钮，未见明确解决事件，记为“状态未核实”。
+- 重复发布说明：本轮 R07 与 R09、R08 与 R10 分别正文相同，但为不同时间和锚点的独立评论，前者明确已解决、后者未见解决事件，因此分别保留。它们均晚于时间边界，不属于已移除的旧版评论。
+- 范围：已加载会话全部记录并展开折叠讨论，核对行级正文、锚点、时间、状态及回复位置；最终未见 show more、隐藏同类评论或其他分页入口。本轮纳入线程未见 OutDated 标记。未逐一打开 27 个文件 diff，无法独立排除会话外讨论；不含草稿、提交事件或无正文的 reviewed 事件。
+- 原文说明：以下严重性、技术判断和修复建议均为评审者原文，未经导出者独立验证。R01/R02/R03/R04/R06 标题以“在”“使用”“硬编码”或“auto”等词结束，按页面原样保留，未补全。部分页面锚点位于 include、签名或版权头，与评论讨论的实现位置不同，以下保留两者，不推断缺失代码。
 
 ## 行动索引（导出者摘要）
 
-以下仅概括评论主题，不代表导出者确认问题成立。
+以下仅概括评论主题，不代表导出者确认问题成立。R07/R09 与 R08/R10 各为同文的独立发布记录。
 
-| 评论 | 类型 / 主题 | 状态 |
-| --- | --- | --- |
-| R01 | 作者说明：VLM 超大输入预检、batch 拆分、取消传播与执行超时 | 未见解决状态标记 |
-| R02 | 行级意见：正确性：预览阶段可能修改 Batch / Sequence 状态 | 状态未核实 |
-| R03 | 行级意见：效率：预览仍构建 engram_history | 状态未核实 |
-| R04 | 行级意见：健壮性：ControlMetadata 的原子操作与共享内存布局 | 状态未核实 |
-| R05 | 行级意见：正确性：执行超时后的 promise / RPC 竞态 | 状态未核实 |
-| R06 | 行级意见：important / perf：预估与执行重复构建 ForwardInput | 状态未核实 |
-| R07 | 行级意见：important / correctness：ControlMetadata 扩容未升级 SHM 布局版本 | 状态未核实 |
-| R08 | 行级意见：minor / dead-code：LOG(FATAL) 后的 std::abort() | 状态未核实 |
-| R09 | 行级意见：minor / dead-code：update_last_step_result 重复校验 | 状态未核实 |
-| R10 | 行级意见：minor / style：raw_output_read 超时默认值重复 | 状态未核实 |
-| R11 | 行级意见：minor / license：两个新测试文件的 All Rights Reserved | 状态未核实 |
-| R12 | 行级意见：minor / perf：forward_input_limit 重复读取和解析 gflags | 状态未核实 |
-| R13 | 行级意见：minor / dead-code：split_by_request 的 mm_data_vec_ 守卫 | 状态未核实 |
-| R14 | Review 小结：修复后再合并；声称已有未解决 P2 讨论 | 未见解决状态标记 |
+| 评论 | 评审者 | 主题 / 原文标签 | 状态 |
+| --- | --- | --- | --- |
+| R01 | 邓英旭 | 正确性：swap_blocks 按值拷贝是否破坏原始排序不变性 | 状态未核实 |
+| R02 | 邓英旭 | 健壮性：初始化中 std::stoull 异常未捕获 | 已解决 |
+| R03 | 邓英旭 | 健壮性：kEnvelopeReserve = 64 的信封容量假设 | 状态未核实 |
+| R04 | 邓英旭 | 效率：candidate_batch 拷贝开销与共享状态 | 状态未核实 |
+| R05 | 邓英旭 | 正确性：拆分执行后刷新原始 batch 的目的与同步 | 已解决 |
+| R06 | 邓英旭 | 健壮性：延迟更新捕获 Sequence 裸指针的生命周期 | 已解决 |
+| R07 | 冯艳 | minor / dead-code：execute_batch 预检后遗留 else 分支（第一次发布） | 已解决 |
+| R08 | 冯艳 | minor / perf：最终容量守卫重复计算同一 dp 输入大小（第一次发布） | 已解决 |
+| R09 | 冯艳 | minor / dead-code：execute_batch 预检后遗留 else 分支（再次发布） | 状态未核实 |
+| R10 | 冯艳 | minor / perf：最终容量守卫重复计算同一 dp 输入大小（再次发布） | 状态未核实 |
+| R11 | 冯艳 | minor / perf：DECODE 判定前无条件拷贝 MMData | 状态未核实 |
+| R12 | 冯艳 | minor / dead-code：prepare_forward_input 的预览分支仅测试使用、入口重复 | 状态未核实 |
 
-## R01 — 罗磊 (ext.luolei15)｜2026年10月29日 15:32:03｜MR 总体评论｜未见解决状态标记
-
-- 类型：作者说明；根评论，0 条回复。
-
-### 评论原文
-
-#### 修复 VLM 超大输入传输失败和分布式执行无限等待
-
-当图片、视频等多模态输入超过共享内存或 RPC 传输容量时，原有流程可能出现传输失败、worker 执行状态不一致或请求持续等待。本 PR 在下发前检查输入大小，并完善通信失败和执行超时的处理。
-
-- 下发前预估序列化输入大小，不推进序列状态、不复制多模态张量数据。
-
-- 未开启调度重叠时，按请求拆分超限 batch；单个请求仍超限则返回明确错误。开启调度重叠时，直接拒绝超限 batch。
-
-- 移除共享内存写入失败后单方面切换 RPC 的逻辑，明确传播通信失败并触发取消。
-
-- 新增 forward_execution_timeout_ms，默认 300 秒，覆盖执行 RPC、共享内存输出和 VLM worker 结果等待。执行失败或超时后标记服务不健康并终止进程，避免继续使用不一致的状态。
-
-新增回归测试覆盖容量边界、输入预估与序列状态保持、取消传播、RPC 失败和输出等待超时。
-
-## R02 — 邓英旭 (dengyingxu1)｜2026/10/29 16:32:23｜xllm/core/distributed_runtime/vlm_engine.cpp:37｜状态未核实
+## R01 — 邓英旭 (dengyingxu1)｜2026/10/30 16:03:23｜xllm/core/framework/batch/batch_input_builder.cpp:216｜状态未核实
 
 - 类型：行级意见；根评论，0 条回复。
 - 严重性 / 标签：原文未标 P 级严重性。
-- 线程锚点：[`discussion_r3484770`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3484770)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
-- 位置说明：页面锚点附近仅显示 include、函数签名或前一函数结尾，不能据此定位评论所述实现；未补造实现代码。
-
-### 页面代码上下文（锚点附近节选）
-
-```diff
- #include "common/interruption_bus.h"
- #include "common/metrics.h"
- #include "core/common/global_flags.h"
-+#include "core/common/health_check_manager.h"
-```
-
-### 评论原文
-
-**1. 正确性 — 预览阶段的潜在状态修改**
-位置：`xllm/core/distributed_runtime/vlm_engine.cpp:37`
-
-`forward_input_sizes` 函数 调用 `prepare_inputs` 时虽然传入了 `commit_sequence_state=false`，但 `prepare_inputs` 内部会调用 `dp_balance_shuffle_seqs()` 和 `refresh_output_targets()`。这些操作可能会修改 `Batch` 或 `Sequence` 的内部状态，导致预览产生副作用，影响后续的 `execute_batch`。
-
-建议确认这些操作是幂等且无破坏性副作用的。如果它们会改变状态，需要将它们也置于 `commit_sequence_state` 的控制之下，或在预览时使用深拷贝。
-
-## R03 — 邓英旭 (dengyingxu1)｜2026/10/29 16:32:24｜xllm/core/framework/batch/batch_input_builder.cpp:216｜状态未核实
-
-- 类型：行级意见；根评论，0 条回复。
-- 严重性 / 标签：原文未标 P 级严重性。
-- 线程锚点：[`discussion_r3484771`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3484771)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
-- 位置说明：页面锚点附近仅显示 include、函数签名或前一函数结尾，不能据此定位评论所述实现；未补造实现代码。
+- 线程锚点：[`discussion_r3486880`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3486880)；未见 OutDated 标记。
+- 状态证据：只见 “No Processing Required” 和 “Resolved” 操作按钮，未见明确解决事件；解决状态未核实。
+- 位置说明：页面锚点附近仅显示 include、签名或版权头，未显示评论所述实现；下方只保留页面实际代码节选。
 
 ### 页面代码上下文（锚点附近节选）
 
@@ -98,242 +52,122 @@
 
 ### 评论原文
 
-**2. 效率 — 预览阶段的多余计算开销**
+**1. 正确性 — xllm/core/framework/batch/batch_input_builder.cpp 在**
 位置：`xllm/core/framework/batch/batch_input_builder.cpp:216`
 
-`process_sequences` 中的 `engram_history` 构建 即使 `commit_sequence_state=false`，`engram_history` 的构建逻辑（`emplace_back`）仍然会执行，只是最后没有调用 `mark_engram_history_restored()`。对于极大的 batch，这会带来不必要的内存和 CPU 开销。
+xllm/core/framework/batch/batch_input_builder.cpp 在 build_forward_input 中，旧代码使用 auto& swap_blocks = *swap_block_transfer_infos_; 原地排序，新代码改为 auto swap_blocks = *swap_block_transfer_infos_; 按值拷贝。当 commit_sequence_state_ 为 true 时，原始的 swap_block_transfer_infos_ 不再被排序。如果后续逻辑依赖原始 swap_block_transfer_infos_ 的有序状态，这会破坏原有不变性，导致行为不一致
 
-建议如果预览仅为了计算大小，可以在 `commit_sequence_state=false` 时直接跳过 `engram_history` 的构建逻辑。
+建议如果原始的 swap_block_transfer_infos_ 需要在 commit_sequence_state_=true 时被排序，应保留引用或显式赋值回去；如果不需要排序，请添加注释说明为什么按值拷贝是安全的。
 
-## R04 — 邓英旭 (dengyingxu1)｜2026/10/29 16:32:24｜xllm/core/runtime/forward_shared_memory_manager.cpp:3527｜状态未核实
-
-- 类型：行级意见；根评论，0 条回复。
-- 严重性 / 标签：原文未标 P 级严重性。
-- 线程锚点：[`discussion_r3484772`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3484772)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
-- 位置说明：页面锚点附近仅显示 include、函数签名或前一函数结尾，不能据此定位评论所述实现；未补造实现代码。
-
-### 页面代码上下文（锚点附近节选）
-
-```diff
-   return filename;
- }
-
-+uint64_t ForwardSharedMemoryManager::input_size(const ForwardInput& input) {
-```
-
-### 评论原文
-
-**3. 健壮性 — 共享内存结构体的原子操作与布局**
-位置：`xllm/core/runtime/forward_shared_memory_manager.cpp:3527`
-
-`cancel()` 和 `cancelled()` `ControlMetadata` 中的 `cancelled` 字段使用 `__atomic_store_n` 和 `__atomic_load_n`。在共享内存中，不同进程的结构体布局必须严格一致。此外，裸用 `__atomic` 内建函数不如 `std::atomic` 安全。
-
-建议确保 `ControlMetadata` 具有明确的内存布局（如静态断言大小和偏移）。考虑使用 `std::atomic<uint64_t>` 替代裸原子操作（前提是 C++ 实现保证其在共享内存中是锁-free的）。
-
-## R05 — 邓英旭 (dengyingxu1)｜2026/10/29 16:32:24｜xllm/core/distributed_runtime/vlm_engine.cpp:45｜状态未核实
+## R02 — 邓英旭 (dengyingxu1)｜2026/10/30 16:03:23｜xllm/core/distributed_runtime/comm_channel.cpp:26｜已解决
 
 - 类型：行级意见；根评论，0 条回复。
 - 严重性 / 标签：原文未标 P 级严重性。
-- 线程锚点：[`discussion_r3484773`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3484773)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
-- 位置说明：页面锚点附近仅显示 include、函数签名或前一函数结尾，不能据此定位评论所述实现；未补造实现代码。
+- 线程锚点：[`discussion_r3486881`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3486881)；未见 OutDated 标记。
+- 状态证据：线程明确显示 “This conversation was maked as "Resolved" by 罗磊”；已解决，页面未显示解决时间。
+- 位置说明：页面锚点附近仅显示 include、签名或版权头，未显示评论所述实现；下方只保留页面实际代码节选。
 
 ### 页面代码上下文（锚点附近节选）
 
 ```diff
- #include "core/framework/config/scheduler_config.h"
- #include "core/framework/config/service_config.h"
- #include "core/framework/prefix_cache/block_hasher.h"
-+#include "core/runtime/forward_shared_memory_manager.h"
+ #include <cstdint>
+ #include "common/global_flags.h"
++#include "core/common/health_check_manager.h"
 ```
-
-> 导出注：下方建议在页面中以未闭合的反引号和 CHECK 结束，原样保留，未猜测缺失内容。
 
 ### 评论原文
 
-**4. 正确性 — 超时后的竞态条件**
-位置：`xllm/core/distributed_runtime/vlm_engine.cpp:45`
+**2. 健壮性 — xllm/core/distributed_runtime/comm_channel.cpp 在通道初始化时使用**
+位置：`xllm/core/distributed_runtime/comm_channel.cpp:26`
 
-`execute_batch` 中的 `within` 超时处理 `folly::collectAll` 超时后，底层的 promise 可能仍在运行。虽然调用了 `abort_execution` 和 `cancel_execution()`，但 RPC 调用可能尚未终止。如果 worker 随后处理新请求，可能产生竞态。
+xllm/core/distributed_runtime/comm_channel.cpp 在通道初始化时使用 std::stoull(value) 解析 gflag max_body_size。如果该 gflag 被配置为非数字字符串或超出 unsigned long long 范围，std::stoull 会抛出 std::invalid_argument 或 std::out_of_range 异常。如果调用方未捕获此异常，会导致通道初始化时发生未处理异常而崩溃
 
-建议确保 cancel 机制能彻底停止 worker 的当前计算，或确保 worker 在处理下一个请求前会检查 cancel 标志并拒绝服务（如 `worker_service.cpp` 中的 `CHECK
+建议使用 try-catch 块包裹 std::stoull，或在转换前验证字符串格式，若无效则返回错误或 CHECK 失败并输出清晰的错误信息。
 
-## R06 — 冯艳 (fengyan.119)｜2026/10/29 17:44:57｜xllm/core/distributed_runtime/vlm_engine.cpp:438｜状态未核实
+## R03 — 邓英旭 (dengyingxu1)｜2026/10/30 16:03:23｜xllm/core/distributed_runtime/comm_channel.cpp:27｜状态未核实
 
 - 类型：行级意见；根评论，0 条回复。
-- 严重性 / 标签：important / perf。
-- 线程锚点：[`discussion_r3485044`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3485044)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
+- 严重性 / 标签：原文未标 P 级严重性。
+- 线程锚点：[`discussion_r3486882`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3486882)；未见 OutDated 标记。
+- 状态证据：只见 “No Processing Required” 和 “Resolved” 操作按钮，未见明确解决事件；解决状态未核实。
+- 位置说明：页面锚点附近仅显示 include、签名或版权头，未显示评论所述实现；下方只保留页面实际代码节选。
 
 ### 页面代码上下文（锚点附近节选）
 
 ```diff
-+    limits[dp_rank] =
-+        std::min(limits[dp_rank], worker_clients_[rank]->forward_input_limit());
-+  }
-+  const auto sizes = forward_input_sizes(batch);
+ #include "common/global_flags.h"
++#include "core/common/health_check_manager.h"
++#include "core/framework/config/execution_config.h"
 ```
 
 ### 评论原文
 
-#### 【🟠 important】【⚡ perf】
+**3. 健壮性 — xllm/core/distributed_runtime/comm_channel.cpp 硬编码**
+位置：`xllm/core/distributed_runtime/comm_channel.cpp:27`
 
-#### 每步为预估 size 多做一次全量 ForwardInput 构建
+xllm/core/distributed_runtime/comm_channel.cpp 硬编码 kEnvelopeReserve = 64 用于计算 forward_input_limit_，假设 brpc/protobuf 的信封大小永远不会超过 64 字节。如果实际传输时的信封（如头部、元数据）大于 64 字节，计算出的 forward_input_limit_ 会高估实际可用容量。这会导致原本应该被拒绝的超大输入通过了预览检查，但在实际发送时仍然失败，违背了本 MR 在分发前拒绝超大输入的初衷
 
----
+建议验证 64 字节是否为 brpc/protobuf 信封的严格上限。如果可能，从相关 API 动态获取信封大小，或使用更安全的保守常量。
 
-**🔎 问题**
-
-> step() 在 438 行无条件调用 forward_input_sizes(batch)，经 forward_input_sizes -> prepare_inputs(batch, commit_sequence_state=false) 完整走一遍 Batch::prepare_forward_input/BatchInputBuilder::build_forward_input，只为拿到每 rank 字节数；紧接着 444 行 execute_batch 在 546 行又执行一次 prepare_inputs 做同样全量构建。fits 为真的常规路径因此把 host 侧输入构建、tensor 拷贝与序列化布局计算做了两遍，等于在 decode 热路径上固定翻倍这部分 CPU 开销。
-
----
-
-**🔧 修改建议**
-
-让 size 检查复用同一次构建结果：execute_batch 内先 prepare_inputs 得到 forward_inputs，再用 ForwardSharedMemoryManager::input_size 判定是否超限；未超限直接下发，超限时才走 split 分支对分片 batch 重新构建。若必须保留下发前预判，则把 forward_input_sizes 改为只累加布局尺寸的轻量路径（不 materialize tensor），并让 execute_batch 复用该布局结果而非重建 ForwardInput。
-
-## R07 — 冯艳 (fengyan.119)｜2026/10/29 17:44:57｜xllm/core/runtime/forward_shared_memory_manager.h:34｜状态未核实
+## R04 — 邓英旭 (dengyingxu1)｜2026/10/30 16:03:23｜xllm/core/distributed_runtime/vlm_engine.cpp:28｜状态未核实
 
 - 类型：行级意见；根评论，0 条回复。
-- 严重性 / 标签：important / correctness。
-- 线程锚点：[`discussion_r3485045`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3485045)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
+- 严重性 / 标签：原文未标 P 级严重性。
+- 线程锚点：[`discussion_r3486883`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3486883)；未见 OutDated 标记。
+- 状态证据：只见 “No Processing Required” 和 “Resolved” 操作按钮，未见明确解决事件；解决状态未核实。
+- 位置说明：页面锚点附近仅显示 include、签名或版权头，未显示评论所述实现；下方只保留页面实际代码节选。
 
 ### 页面代码上下文（锚点附近节选）
 
 ```diff
-
- struct ControlMetadata {
-   volatile uint64_t version;
-+  uint64_t cancelled;
+ #include <chrono>
+-#include <cstdlib>
+ #include <functional>
++#include <limits>
 ```
 
 ### 评论原文
 
-#### 【🟠 important】【✅ correctness】
+**4. 效率 — xllm/core/distributed_runtime/vlm_engine.cpp auto**
+位置：`xllm/core/distributed_runtime/vlm_engine.cpp:28`
 
-#### ControlMetadata 新增 cancelled 改变 SHM 载荷布局，但未提升布局版本号
+xllm/core/distributed_runtime/vlm_engine.cpp auto candidate_batch = batch; 对 std::vector 进行了拷贝构造。如果 Batch 的拷贝构造是深拷贝（如拷贝张量或大向量），在每次预览时都会产生较大的性能开销；如果是浅拷贝（如仅拷贝指针），后续 prepare_inputs 修改 candidate_batch 的内部结构时，可能会与 batch 产生意外的共享状态问题
 
----
+建议确认 Batch 的拷贝语义对此操作是安全的。如果深拷贝开销过大，考虑使用指针或移动语义优化；如果存在浅拷贝别名风险，确保修改 candidate_batch 不会污染 batch 的状态。
 
-**🔎 问题**
-
-> ControlMetadata 由 8 字节扩到 16 字节，构造函数里 metadata_addr_ = base_address() + sizeof(ControlMetadata)，所有 pb/raw 载荷与 payload_size 字段整体后移 8 字节。而 SharedMemoryManager 只校验 SharedMemoryLayoutHeader 的 magic/version/header_size/payload_size：payload_size 用的是构造参数 size（input_shm_size 配置值，未变），kSharedMemoryLayoutVersion 仍是 2，所以新旧布局在同一份 SHM 上会被判定为兼容，payload 偏移错位无法被任何机制检出。
-
----
-
-**🔧 修改建议**
-
-把布局版本号一起提升：在 xllm/core/util/shared_memory_manager.cpp 将 kSharedMemoryLayoutVersion 从 2 改为 3（配合既有 magic/version CHECK，让旧对象在 attach 时直接失败并提示清理），使 ControlMetadata 的扩容成为可检出的不兼容变更。若希望优先保持兼容，则把 cancelled 移出载荷前缀（放进 SharedMemoryLayoutHeader 的 reserved 区或独立 control SHM），使 metadata_addr_ 偏移保持不变。
-
-## R08 — 冯艳 (fengyan.119)｜2026/10/29 17:44:58｜xllm/core/distributed_runtime/vlm_engine.cpp:542｜状态未核实
+## R05 — 邓英旭 (dengyingxu1)｜2026/10/30 16:03:23｜xllm/core/distributed_runtime/vlm_engine.cpp:36｜已解决
 
 - 类型：行级意见；根评论，0 条回复。
-- 严重性 / 标签：minor / dead-code。
-- 线程锚点：[`discussion_r3485046`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3485046)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
+- 严重性 / 标签：原文未标 P 级严重性。
+- 线程锚点：[`discussion_r3486884`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3486884)；未见 OutDated 标记。
+- 状态证据：线程明确显示 “This conversation was maked as "Resolved" by 罗磊”；已解决，页面未显示解决时间。
+- 位置说明：页面锚点附近仅显示 include、签名或版权头，未显示评论所述实现；下方只保留页面实际代码节选。
 
 ### 页面代码上下文（锚点附近节选）
 
 ```diff
-+  }
-+  LOG(FATAL) << reason
-+             << "; worker state is not recoverable, restart the worker group";
-+  std::abort();
+ #include "common/interruption_bus.h"
+ #include "common/metrics.h"
+ #include "core/common/global_flags.h"
++#include "core/common/health_check_manager.h"
 ```
 
 ### 评论原文
 
-#### 【🔵 minor】【🧹 dead-code】
+**5. 正确性 — xllm/core/distributed_runtime/vlm_engine.cpp**
+位置：`xllm/core/distributed_runtime/vlm_engine.cpp:36`
 
-#### abort_execution 中 LOG(FATAL) 之后的 std::abort() 不可达
+xllm/core/distributed_runtime/vlm_engine.cpp 在拆分执行路径的循环结束后，调用了 for (auto& dp_batch : batch) { dp_batch.refresh_sequences_from_groups(); }。但在拆分路径中，实际执行的是 sub_batch，原始 batch 对象并未直接参与执行。如果 batch 在此之后不再被使用，此操作属于无效的死代码；如果被使用，由于 sub_batch 与 batch 共享底层 Sequence 指针，需要确认 refresh_sequences_from_groups() 是否能正确同步 sub_batch 执行后的状态到 batch
 
----
+建议明确此处刷新原始 batch 对象的目的。如果是死代码则移除；如果需要同步状态，请确保 refresh_sequences_from_groups() 的逻辑能正确反映 sub_batch 执行后的序列状态。
 
-**🔎 问题**
-
-> VLMEngine::abort_execution（vlm_engine.cpp:535-543）在 LOG(FATAL) 之后跟了一行 std::abort()。glog 的 LOG(FATAL) 是 noreturn 语义（打印后自身终止进程），因此 std::abort() 永远不会执行，是死代码；函数已声明 [[noreturn]]，不需要额外的兜底调用。
-
----
-
-**🔧 修改建议**
-
-删除 vlm_engine.cpp:542 的 std::abort() 行，保留 LOG(FATAL) 作为终止点。
-
-## R09 — 冯艳 (fengyan.119)｜2026/10/29 17:44:59｜xllm/core/distributed_runtime/vlm_engine.cpp:664｜状态未核实
+## R06 — 邓英旭 (dengyingxu1)｜2026/10/30 16:03:23｜tests/core/framework/batch/batch_transport_test.cpp:1｜已解决
 
 - 类型：行级意见；根评论，0 条回复。
-- 严重性 / 标签：minor / dead-code。
-- 线程锚点：[`discussion_r3485047`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3485047)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
-
-### 页面代码上下文（锚点附近节选）
-
-```diff
-     if (result.has_value()) {
-       raw_forward_outputs.emplace_back(std::move(result.value()));
-     } else {
-```
-
-### 评论原文
-
-#### 【🔵 minor】【🧹 dead-code】
-
-#### update_last_step_result 第二轮校验的 else 分支不可达
-
----
-
-**🔎 问题**
-
-> update_last_step_result（vlm_engine.cpp:653-667）先用一个循环对 last_step_results 逐项检查 hasException()/!has_value() 并 abort_execution（653-657），随后 659-667 的分发循环又对同样的条件写了 else { abort_execution("Failed to get last step results"); }。第一轮已保证所有结果非空且无异常，第二个 abort 分支永远不会执行，属于重复校验加死分支。
-
----
-
-**🔧 修改建议**
-
-删掉 661-666 的 has_value()/else 判断，直接 raw_forward_outputs.emplace_back(std::move(result.value()))；或去掉 653-657 的第一轮预检循环，只保留分发处的一次校验。二者取其一。
-
-## R10 — 冯艳 (fengyan.119)｜2026/10/29 17:44:59｜xllm/core/runtime/forward_shared_memory_manager.h:145｜状态未核实
-
-- 类型：行级意见；根评论，0 条回复。
-- 严重性 / 标签：minor / style。
-- 线程锚点：[`discussion_r3485048`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3485048)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
-
-### 页面代码上下文（锚点附近节选）
-
-```diff
--  void raw_output_read(RawForwardOutput& outputs);
-+  bool raw_output_read(
-+      RawForwardOutput& outputs,
-+      std::chrono::milliseconds timeout = std::chrono::milliseconds(300000),
-```
-
-### 评论原文
-
-#### 【🔵 minor】【🎨 style】
-
-#### raw_output_read 默认参数硬编码 300000ms，与 ExecutionConfig 默认值重复
-
----
-
-**🔎 问题**
-
-> ForwardSharedMemoryManager::raw_output_read 的头文件默认参数 std::chrono::milliseconds(300000)（forward_shared_memory_manager.h:145）与 ExecutionConfig::forward_execution_timeout_ms 的 PROPERTY 默认 300000（execution_config.h:88）是两份独立的 300000。生产调用方（shm_channel.cpp 的 raw_output_read 路径）都显式传入 config 值，该默认值只在测试里生效；将来调整 config 默认时这个隐式副本不会被一起改，容易产生测试与生产行为漂移。
-
----
-
-**🔧 修改建议**
-
-去掉默认参数，要求调用方显式传入超时（生产路径已全部显式传 config 值）；测试里显式写 std::chrono::milliseconds 或读取 ExecutionConfig。单一来源保持在 ExecutionConfig。
-
-## R11 — 冯艳 (fengyan.119)｜2026/10/29 17:45:00｜tests/core/framework/batch/batch_transport_test.cpp:1｜状态未核实
-
-- 类型：行级意见；根评论，0 条回复。
-- 严重性 / 标签：minor / license。
-- 线程锚点：[`discussion_r3485049`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3485049)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
+- 严重性 / 标签：原文未标 P 级严重性。
+- 线程锚点：[`discussion_r3486885`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3486885)；未见 OutDated 标记。
+- 状态证据：线程明确显示 “This conversation was maked as "Resolved" by 罗磊”；已解决，页面未显示解决时间。
+- 位置说明：页面锚点附近仅显示 include、签名或版权头，未显示评论所述实现；下方只保留页面实际代码节选。
 
 ### 页面代码上下文（锚点附近节选）
 
@@ -343,96 +177,226 @@
 
 ### 评论原文
 
-#### 【🔵 minor】【📄 license】
+**6. 健壮性 — xllm/core/framework/batch/batch_input_builder.cpp 在**
+位置：`tests/core/framework/batch/batch_transport_test.cpp:1`
 
-#### 新增测试文件版权头包含 All Rights Reserved，违反项目代码风格
+xllm/core/framework/batch/batch_input_builder.cpp 在 process_single_sequence 中，apply_or_defer 的 lambda 捕获了 sequence 的原始指针。当 commit_sequence_state_ 为 false 时，该 lambda 会被存储在 sequence_updates 中延迟执行。如果在 commit() 实际调用前，sequence 对象被销毁或生命周期结束，将导致 use-after-free
 
----
+建议确保 Sequence 对象的生命周期严格长于 PreparedForwardInput 的生命周期。如果无法保证，考虑使用智能指针或在提交时重新获取序列引用。
 
-**🔎 问题**
-
-> 本 MR 新增的两个测试文件 tests/core/framework/batch/batch_transport_test.cpp:1 与 tests/core/distributed_runtime/comm_channel_failure_test.cpp:1 的版权头均为 "/* Copyright 2026 The xLLM Authors. All Rights Reserved."。项目 custom-code-style 第 2 条规定不得添加 All Rights Reserved。两个文件的版权行都在本 diff 内，属于新增内容。
-
----
-
-**🔧 修改建议**
-
-将两个新测试文件首行改为 "/* Copyright 2026 The xLLM Authors."，去掉 " All Rights Reserved."。
-
-## R12 — 冯艳 (fengyan.119)｜2026/10/29 17:45:00｜xllm/core/distributed_runtime/comm_channel.cpp:34｜状态未核实
-
-- 类型：行级意见；根评论，0 条回复。
-- 严重性 / 标签：minor / perf。
-- 线程锚点：[`discussion_r3485050`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3485050)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
-
-### 页面代码上下文（锚点附近节选）
-
-```diff
-+uint64_t CommChannel::forward_input_limit() const {
-+  std::string value;
-+  CHECK(gflags::GetCommandLineOption("max_body_size", &value));
-+  const uint64_t max_body_size = std::stoull(value);
-```
-
-### 评论原文
-
-#### 【🔵 minor】【⚡ perf】
-
-#### forward_input_limit 每次调用都查 gflags 并解析字符串
-
----
-
-**🔎 问题**
-
-> forward_input_limit() 每次调用都执行 gflags::GetCommandLineOption("max_body_size", &value) 加一次 std::string 构造和 std::stoull 解析，但 max_body_size 是进程级常量。VLMEngine::step 在 436 行对每个 rank 调一次、execute_batch 在 553 行再对每个 rank 调一次，即每 step 有 2*worker_clients_num 次字符串解析；同时 CHECK(GetCommandLineOption(...)) 把 brpc 的 flag 名硬编码成容量契约，flag 缺失时会直接 abort 而不是回落到一个明确容量。
-
----
-
-**🔧 修改建议**
-
-在 CommChannel 初始化（init_brpc 或构造）时解析一次并缓存为成员（如 uint64_t forward_input_limit_），forward_input_limit() 直接返回缓存值；把 CHECK(gflags::GetCommandLineOption(...)) 改为带回退的读取（取不到时用明确的默认容量并 LOG(WARNING)），避免把 flag 注册情况变成进程级断言。
-
-## R13 — 冯艳 (fengyan.119)｜2026/10/29 17:45:01｜xllm/core/framework/batch/batch.cpp:528｜状态未核实
+## R07 — 冯艳 (fengyan.119)｜2026/10/30 17:19:56｜xllm/core/distributed_runtime/vlm_engine.cpp:603｜已解决
 
 - 类型：行级意见；根评论，0 条回复。
 - 严重性 / 标签：minor / dead-code。
-- 线程锚点：[`discussion_r3485051`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3485051)；未见 OutDated 标记。
-- 状态证据：只见处理动作按钮，未见明确解决事件；解决状态未核实。
+- 线程锚点：[`discussion_r3487172`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3487172)；未见 OutDated 标记。
+- 状态证据：线程明确显示 “This conversation was maked as "Resolved" by 罗磊”；已解决，页面未显示解决时间。
+- 发布关系：与 R09 正文相同，属于不同时间和锚点的独立评论；不据其中一条的状态推断另一条。
 
 ### 页面代码上下文（锚点附近节选）
 
 ```diff
-+  // Block-copy operations may depend on sources belonging to another request.
-+  // Such a batch must remain atomic rather than replay its copies per split.
-+  if (requires_host_restore_ || !swap_block_transfer_infos_.empty() ||
-+      !mm_data_vec_.empty()) {
++  }
++  auto results = std::move(completion).value();
++  for (const auto& result : results) {
++    if (result.hasException() || !result.value().has_value()) {
 ```
 
 ### 评论原文
 
 #### 【🔵 minor】【🧹 dead-code】
 
-#### split_by_request 的 mm_data_vec_ 守卫无写入方，恒不成立
+#### execute_batch 结果预检循环使分发循环的 else 分支不可达
 
 ---
 
 **🔎 问题**
 
-> split_by_request 用 !mm_data_vec_.empty() 作为“该 batch 不可按请求切分”的条件之一，但全树对 Batch::mm_data_vec_ 只有读取（batch.cpp 277/317/499/528 行与构造入参），没有任何 push_back/emplace/赋值，因此该条件永远为假，多模态 batch 的原子性实际只靠 requires_host_restore_ 与 swap_block_transfer_infos_ 兜住。若本意是“带多模态数据的 batch 不得切分”，当前实现并未生效；若本意是给未来写入留位，则这是一段不可达判断。
+> execute_batch 在 602-606 行新增的结果预检循环先对所有 futures 检查 hasException()/!has_value() 并 abort_execution，随后 610 行起的分发循环里保留了既有的 else { LOG(FATAL) << "Failed to execute model, result has no value"; }（638-640 行）。预检已保证进入分发循环时每个结果非空且无异常，该 else 分支永远不会执行，属于预检引入后遗留的死分支。同一 MR 中 update_last_step_result（672-676 预检 + 678-682 无条件 emplace）已经按去掉 else 的方式修复过完全相同的模式，此处漏改。
 
 ---
 
 **🔧 修改建议**
 
-二选一并删除歧义：若多模态 batch 必须保持原子，就从 Sequence 侧汇总（例如遍历 sequences_ 检查 sequence->mm_data().valid()）或补上 mm_data_vec_ 的实际填充点，让该条件真正生效；若不打算支持该约束，直接删掉 `!mm_data_vec_.empty()` 这个分支条件，只保留 requires_host_restore_ 与 swap_block_transfer_infos_ 两项。
+删除分发循环中对 result 的 if/else 判断，直接以 result.value() 消费结果（与 update_last_step_result 678-682 行的写法一致，例如直接调用 batch[dp_rank].process_sample_output(result.value(), ...)），去掉 638-640 行的 else 死分支。
 
-## R14 — 邓英旭 (dengyingxu1)｜2026年10月29日 22:02:46｜MR 总体评论｜未见解决状态标记
+## R08 — 冯艳 (fengyan.119)｜2026/10/30 17:19:56｜xllm/core/distributed_runtime/vlm_engine.cpp:570｜已解决
 
-- 类型：Review 小结；根评论，0 条回复。
+- 类型：行级意见；根评论，0 条回复。
+- 严重性 / 标签：minor / perf。
+- 线程锚点：[`discussion_r3487173`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3487173)；未见 OutDated 标记。
+- 状态证据：线程明确显示 “This conversation was maked as "Resolved" by 罗磊”；已解决，页面未显示解决时间。
+- 发布关系：与 R10 正文相同，属于不同时间和锚点的独立评论；不据其中一条的状态推断另一条。
+
+### 页面代码上下文（锚点附近节选）
+
+```diff
++  // Last guard before any rank can observe an input. A mismatch with the
++  // preview is an invariant failure, not a reason to switch transports.
++  for (uint32_t rank = 0; rank < worker_clients_num_; ++rank) {
++    if (ForwardSharedMemoryManager::input_size(
+```
 
 ### 评论原文
 
-审查范围：MR !636 的两个提交，覆盖 24 个文件，重点检查 VLM 超限预检、batch 拆分、SHM/RPC 取消与执行超时路径，以及对应回归测试。精确 refs：base `bd223f66f356e61db669583caacd2b51f83a316e`，head `1ba509d230c3a878d42d9defb7f61c0f5c915716`，merge-base `47c03115ecaaf15051b1d3186874cd7f6b07e668`。已检查完整 diff、调用链、状态所有权和已有讨论；现有讨论中已覆盖的候选问题未重复发布。`git diff --check` 通过；未运行 C++ 测试或硬件/推理验证，当前环境缺少构建工具链。已有未解决 P2 讨论，影响传输容量边界处理，详见对应 inline 讨论。
+#### 【🔵 minor】【⚡ perf】
 
-合并建议：修复后再合并。
+#### 最终容量守卫对同一 dp 输入重复计算 dp_local_tp_size_ 次 input_size
+
+---
+
+**🔎 问题**
+
+> execute_batch 的最终容量守卫循环（569-575 行）遍历全部 worker_clients_num_ 个 rank，每次调用 ForwardSharedMemoryManager::input_size(forward_inputs[rank / dp_local_tp_size_])。同一个 dp 组的 ForwardInput 是同一份对象，其完整布局尺寸（遍历所有 tensor 的 numel*dtype 与序列化开销）被重复计算 dp_local_tp_size_ 次；该守卫在常规 decode 热路径每步执行。step() 中 limits 向量（431-435 行附近）已经按 dp 维度构建并复用，此处未采用同样的去重。
+
+---
+
+**🔧 修改建议**
+
+按 dp 维度计算：循环 dp_size_ 次（或对 forward_inputs 的去重序列）调用 input_size 并与对应 channel 的 limit 比较，同一 dp 组内所有 rank 复用该结果，与 step() 里 limits 向量的构建方式一致。
+
+## R09 — 冯艳 (fengyan.119)｜2026/10/30 17:39:10｜xllm/core/distributed_runtime/vlm_engine.cpp:603｜状态未核实
+
+- 类型：行级意见；根评论，0 条回复。
+- 严重性 / 标签：minor / dead-code。
+- 线程锚点：[`discussion_r3487215`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3487215)；未见 OutDated 标记。
+- 状态证据：只见 “No Processing Required” 和 “Resolved” 操作按钮，未见明确解决事件；解决状态未核实。
+- 发布关系：与 R07 正文相同，属于不同时间和锚点的独立评论；不据其中一条的状态推断另一条。
+
+### 页面代码上下文（锚点附近节选）
+
+```diff
++  }
++  auto results = std::move(completion).value();
++  for (const auto& result : results) {
++    if (result.hasException() || !result.value().has_value()) {
+```
+
+### 评论原文
+
+#### 【🔵 minor】【🧹 dead-code】
+
+#### execute_batch 结果预检循环使分发循环的 else 分支不可达
+
+---
+
+**🔎 问题**
+
+> execute_batch 在 602-606 行新增的结果预检循环先对所有 futures 检查 hasException()/!has_value() 并 abort_execution，随后 610 行起的分发循环里保留了既有的 else { LOG(FATAL) << "Failed to execute model, result has no value"; }（638-640 行）。预检已保证进入分发循环时每个结果非空且无异常，该 else 分支永远不会执行，属于预检引入后遗留的死分支。同一 MR 中 update_last_step_result（672-676 预检 + 678-682 无条件 emplace）已经按去掉 else 的方式修复过完全相同的模式，此处漏改。
+
+---
+
+**🔧 修改建议**
+
+删除分发循环中对 result 的 if/else 判断，直接以 result.value() 消费结果（与 update_last_step_result 678-682 行的写法一致，例如直接调用 batch[dp_rank].process_sample_output(result.value(), ...)），去掉 638-640 行的 else 死分支。
+
+## R10 — 冯艳 (fengyan.119)｜2026/10/30 17:39:10｜xllm/core/distributed_runtime/vlm_engine.cpp:570｜状态未核实
+
+- 类型：行级意见；根评论，0 条回复。
+- 严重性 / 标签：minor / perf。
+- 线程锚点：[`discussion_r3487216`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3487216)；未见 OutDated 标记。
+- 状态证据：只见 “No Processing Required” 和 “Resolved” 操作按钮，未见明确解决事件；解决状态未核实。
+- 发布关系：与 R08 正文相同，属于不同时间和锚点的独立评论；不据其中一条的状态推断另一条。
+
+### 页面代码上下文（锚点附近节选）
+
+```diff
++  // Last guard before any rank can observe an input. A mismatch with the
++  // preview is an invariant failure, not a reason to switch transports.
++  for (uint32_t rank = 0; rank < worker_clients_num_; ++rank) {
++    if (ForwardSharedMemoryManager::input_size(
+```
+
+### 评论原文
+
+#### 【🔵 minor】【⚡ perf】
+
+#### 最终容量守卫对同一 dp 输入重复计算 dp_local_tp_size_ 次 input_size
+
+---
+
+**🔎 问题**
+
+> execute_batch 的最终容量守卫循环（569-575 行）遍历全部 worker_clients_num_ 个 rank，每次调用 ForwardSharedMemoryManager::input_size(forward_inputs[rank / dp_local_tp_size_])。同一个 dp 组的 ForwardInput 是同一份对象，其完整布局尺寸（遍历所有 tensor 的 numel*dtype 与序列化开销）被重复计算 dp_local_tp_size_ 次；该守卫在常规 decode 热路径每步执行。step() 中 limits 向量（431-435 行附近）已经按 dp 维度构建并复用，此处未采用同样的去重。
+
+---
+
+**🔧 修改建议**
+
+按 dp 维度计算：循环 dp_size_ 次（或对 forward_inputs 的去重序列）调用 input_size 并与对应 channel 的 limit 比较，同一 dp 组内所有 rank 复用该结果，与 step() 里 limits 向量的构建方式一致。
+
+## R11 — 冯艳 (fengyan.119)｜2026/10/30 17:39:11｜xllm/core/framework/batch/batch_input_builder.cpp:1608｜状态未核实
+
+- 类型：行级意见；根评论，0 条回复。
+- 严重性 / 标签：minor / perf。
+- 线程锚点：[`discussion_r3487217`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3487217)；未见 OutDated 标记。
+- 状态证据：只见 “No Processing Required” 和 “Resolved” 操作按钮，未见明确解决事件；解决状态未核实。
+
+### 页面代码上下文（锚点附近节选）
+
+```diff
+-  MMData& mm_data = sequence->mutable_mm_data();
++  // The scheduling visitor updates item indices and ranges. Stage those
++  // updates on a shallow metadata copy, sharing the original tensor storage.
++  MMData mm_data = sequence->mm_data();
+```
+
+### 评论原文
+
+#### 【🔵 minor】【⚡ perf】
+
+#### DECODE 步在判定 stage 前无条件拷贝整份 MMData
+
+---
+
+**🔎 问题**
+
+> process_multi_modal_inputs 现在先执行 `MMData mm_data = sequence->mm_data();`（1608 行），再在 1609 行用 `sequence->stage() != SequenceStage::DECODE` 决定是否使用它。改动前（old 1531 行）这里取的是 `MMData& mm_data = sequence->mutable_mm_data();` 引用，只在需要时才对序列的 mm_data 做原地更新，不产生拷贝。MMData 持有 `std::variant<MMItemVec, MMDict>`（mm_data.h:59、187），拷贝会复制 variant 内的 vector/unordered_map 结构（每个 MMDataItem/MMValue 还会各自复制其张量与元数据成员）。该函数由 process_sequences 对每个序列逐个调用（884-885 行），走的是默认 decode 热路径；纯文本 decode 时 `mm_data.valid()` 为 false，这次拷贝完全无用，每步每序列都要付一次堆分配与整表复制的代价。
+
+---
+
+**🔧 修改建议**
+
+把拷贝移入需要它的分支，decode 路径保持零成本：先判 stage，再在分支内构造拷贝，例如
+
+```cpp
+if (sequence->stage() != SequenceStage::DECODE && sequence->mm_data().valid()) {
+  MMData mm_data = sequence->mm_data();
+  ...
+}
+```
+
+或先取 `const MMData& src = sequence->mm_data();` 做 stage/valid 判定，仅在进入分支后拷贝一次。
+
+## R12 — 冯艳 (fengyan.119)｜2026/10/30 17:39:11｜xllm/core/framework/batch/batch.cpp:494｜状态未核实
+
+- 类型：行级意见；根评论，0 条回复。
+- 严重性 / 标签：minor / dead-code。
+- 线程锚点：[`discussion_r3487218`](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/636#discussion_r3487218)；未见 OutDated 标记。
+- 状态证据：只见 “No Processing Required” 和 “Resolved” 操作按钮，未见明确解决事件；解决状态未核实。
+
+### 页面代码上下文（锚点附近节选）
+
+```diff
+-                                          int32_t cp_size) {
++                                          int32_t cp_size,
++                                          bool commit_sequence_state) {
++  if (!commit_sequence_state) {
+```
+
+### 评论原文
+
+#### 【🔵 minor】【🧹 dead-code】
+
+#### commit_sequence_state=false 的预览分支无生产调用者，且与 candidate 路径重复
+
+---
+
+**🔎 问题**
+
+> Batch::prepare_forward_input 新增的 `bool commit_sequence_state` 参数只在 494-499 行分支里起作用：置 false 时值拷贝一个 Batch，走 prepare_forward_input_candidate 后直接返回 `std::move(prepared.input())`，把准备好的 PreparedForwardInput 连同其 sequence_updates_ 一起丢弃（预览阶段的延迟更新永远不会提交），得到的是 meta 占位输入。生产路径全部使用默认 true：llm_engine.cpp:1430 与 vlm_executor_impl 都不传该参数；唯一传 false 的是 batch_transport_test.cpp（68/198/224/293）。也就是这条预览分支只在测试里被使用，功能上等价于 prepare_forward_input_candidate().input()，等于同一能力维护了两套入口，且误用时不会报错、只会静默丢弃 sequence 更新。
+
+---
+
+**🔧 修改建议**
+
+删除 Batch::prepare_forward_input 的 commit_sequence_state 参数与 494-499 行的预览分支（batch.h:100-103 同步去掉该形参），预览语义统一由 prepare_forward_input_candidate() + commit_forward_input() 承担；测试侧的预览调用改成 `batch.prepare_forward_input_candidate(args, nullptr).input()`。注意 BatchInputBuilder 自身的 commit_sequence_state 参数仍需保留，prepare_forward_input_candidate（batch.cpp:541）正是靠它构造预览。
