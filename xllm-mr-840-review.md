@@ -1,26 +1,27 @@
-# xLLM MR #840 — Review 意见
+# xLLM MR #840 — 最新 Review 意见
 
 - 来源：[MR #840](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840)
 - 标题：`perf: reduce deepseek mla and moe overhead on mlu.`
-- 分支：`perf/joyai_perf` → `main`；1 commit、12 files changed（405 additions、17 deletions）。
+- 分支：`perf/joyai_perf` → `main`；3 commits、16 files changed（532 additions、27 deletions）。
 - 页面状态：Open / Reviewing；要求 2 人批准，等待人工评审；状态检查显示 3 items passed，必需的 xLLM 服务 CI 流水线 #9271455 显示 success，合并条件尚未满足。
-- 当前 head：页面未显示独立 head 字段，未单独核实；唯一提交链接为 `62281bdd81c2e2c3a06ae4e880a556c5aaf4e431`，回复原文以 `62281bdd81c2` 标注 head。
-- 提取时间：2026-11-17T09:54:46+08:00；通过已登录 Chrome 刷新并等待加载后读取，展开作者说明并检查 Files Changed；写入后再次刷新核对，作者说明及全部 6 条评论正文一致。
-- 筛选：未指定作者或解决状态过滤；收录全部已读取评论、回复及作者说明。
-- 清单：3 条行级根评论、3 条已发布回复、0 条独立评审小结；另有 MR 作者说明 1 条，共 4 条根内容及 3 条回复。页面 Conversation 为 6。按讨论 ID 去重，回复输入框和提交事件不计为评论。
-- 解决状态：3 个线程均只见 No Processing Required / Resolved 操作按钮，未见明确解决事件；逐线程标为未核实，不把按钮文字当作状态。页面 AICR 汇总显示已处理(0)、未处理(0)，不能据此确定这些线程的状态。
-- 范围限制：检查了 Conversation 和 Files Changed，包括默认不渲染的 213 行测试文件 diff；未发现隐藏评论组、评论分页、load more 控件或 OutDated 标记。文件视图使用按需渲染，已检查与评论相关的文件；未独立遍历全部历史差异版本，不能排除未加载的历史内容；不含草稿。
-- 原文说明：以下技术判断、失败模式及验证陈述属于评审者或 MR 作者，未经导出者独立验证。R01 根评论称可能越界，回复 R01.1 称按 API 契约推断会静默错值，并指出标准 builder 下不可达；两种表述分别保留。评论内行号与页面锚点可能不同，均按来源保留。原文中的代码省略号不代表完整实现。
+- 当前版本：页面 force-push 事件显示源分支于 2026/11/17 10:59 从 `62281bd` 更新到 `e8b2d89f15332cb1a245ca6d40e78ed30d02778b`；当前提交列表为 `e8b2d89f15332cb1a245ca6d40e78ed30d02778b`、`d13467dff7863a29f9d95e6a91696eb29d5ed30c`、`83b52b1ea1761f3e587535b5028f2d98c25b3e4e`。页面无独立 head 字段，未另行核验 Git 引用。
+- 提取时间：2026-11-17T14:20:02+08:00；通过已登录 Chrome 刷新并等待加载后读取，展开作者说明及旧讨论以核对线程边界；写入后再次刷新，全部 14 条评论及作者说明正文一致。
+- 筛选：按用户“更新新的 review 意见，旧的可以删除”的要求，以新一轮 4 条根评论替换旧导出；移除旧的 3 个线程及其全部 7 条回复（包括本次新增的修复确认回复），不保留旧意见正文。未限定评审者；保留当前 MR 作者说明作为背景。
+- 清单：页面共 7 条行级根评论、7 条已发布回复，与 Conversation 14 一致；本次收录 4 条新根评论、0 条回复、0 条独立评审小结，另有作者说明 1 条，共 5 条根内容及 0 条回复。重复显示的评论按讨论 ID 去重；回复输入框及提交事件不计入。
+- 解决状态：旧的 3 个线程均显示 OutDated，且有明确“Resolved by 罗磊”状态记录；新 4 个线程仅显示 No Processing Required / Resolved 操作按钮，未见解决事件，逐线程标为未核实。AICR 汇总已处理(0)、未处理(0)不能用于判断线程状态。
+- 范围限制：检查了 Conversation 与相关文件差异，未发现隐藏评论组、评论分页或 load more 控件。旧的过期讨论已纳入清单核对后排除；未独立遍历全部历史差异版本，不能排除未加载的历史内容；不含草稿。
+- 原文说明：以下技术判断和修改建议均来自评审者或 MR 作者，未经导出者独立验证。页面锚点与正文自述行号分别保留。R04 的类型片段在页面显示为 `std::optionaltorch::Tensor`（`torch::Tensor` 被渲染为异常链接），按可见文字保留，不补全模板符号。
 
 ## 行动索引（导出者摘要）
 
 | 评论 | 作者 | 严重性 / 类别 | 主题 | 回复数 | 线程状态 |
 | --- | --- | --- | --- | --- | --- |
-| R01 | 邓英旭；回复：马晓龙、邓英旭 | 正确性；补充 P2 | 检查 cached prefill 的 block_table、kv_seq_lens 和 max_context_len 契约；回复补充分页布局被按 linear 模式解释的风险及触发边界 | 2 | 未核实 |
-| R02 | 冯艳；回复：马晓龙 | minor / dead-code | 清理非量化分支无读者的赋值；回复建议同时清理 a8 分支赋值及局部变量声明 | 1 | 未核实 |
-| R03 | 马晓龙 | P2 / test-gap | 增加 tp=2 的 MLA unabsorbed 路径分片数值测试及回归注入验证 | 0 | 未核实 |
+| R01 | 邓英旭 | 正确性；未标级别 | 校验 kv_seq_lens 总和与 total_kv_len 一致，避免 cached prefill gather 输出尺寸不匹配 | 0 | 未核实 |
+| R02 | 邓英旭 | 正确性；未标级别 | 检查 unabsorbed prefill 调度条件中的 CP/DCP 排除或入口约束 | 0 | 未核实 |
+| R03 | 冯艳 | important / perf | 限制历史 K/V 物化的 total_kv_len，并减少完整 K 张量复制 | 0 | 未核实 |
+| R04 | 冯艳 | minor / architecture | 将 MLU 专属 output 字段移入明确的后端参数分区或专属参数类型 | 0 | 未核实 |
 
-## 作者说明 — ext.luolei15｜2026/11/16 18:46:45｜MR 描述
+## 作者说明 — ext.luolei15｜2026/11/16 18:46:45｜当前 MR 描述
 
 ### 变更说明
 
@@ -36,229 +37,110 @@
 - 补充 MoE 预分配输出切片测试，检查结果正确性与写入边界。
 - 更新 MoE 输出合并测试，检查通信前的本地求和及去 padding 结果。
 
-## R01 — 邓英旭｜2026/11/16 18:52:31｜xllm/core/layers/mlu/deepseek_v32/deepseek_v32_attention.cpp:613｜状态未核实
+## R01 — 邓英旭｜2026/11/17 11:04:23｜xllm/core/layers/mlu/deepseek_v32/deepseek_v32_attention.cpp:620｜状态未核实
 
-- 类型：行级根评论；账号 `dengyingxu1`；2 条已发布回复。
-- 线程：[discussion_r3517444](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3517444)
+- 类型：行级根评论；账号 `dengyingxu1`；0 条已发布回复。
+- 线程：[discussion_r3519179](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3519179)
 - 状态证据：所在讨论仅显示处理操作按钮，未见明确解决事件。
-- 位置说明：锚定新文件第 613 行；以下为页面线程预览片段，保留新增/上下文标记，未补全预览以外的代码。
+- 位置说明：锚定新文件第 620 行；以下为页面线程预览片段，保留新增/上下文标记，未补全预览以外的代码。
 
 ```diff
-+                         attn_metadata.max_query_len,
-+                         attn_metadata.is_prefill);
-+  }
-+
++  torch::Tensor query = query_prep.q;
++  if (qk_rope_head_dim_ > 0) {
++    auto query_rope = query.slice(-1, qk_nope_head_dim_);
++    rotary_emb_->forward(query_rope,
 ```
 
 ### 根评论原文
 
-**1. 正确性 — cached prefill 路径在 gather 前未校验 block_table 与 kv_seq_lens 的一致性**
-位置：`xllm/core/layers/mlu/deepseek_v32/deepseek_v32_attention.cpp:613-614`
+**1. 正确性 — cached prefill 中 latent_cache 尺寸未考虑 kv_seq_lens 与 total_kv_len 的一致性**
+位置：`xllm/core/layers/mlu/deepseek_v32/deepseek_v32_attention.cpp:620-623`
 
-forward_unabsorbed_prefill 在 total_kv_len > hidden_states.size(0) 时直接用 attn_metadata.block_table 与 kv_seq_lens 调用 reshape_from_cache 收集历史 latent，并未做任何维度/非空检查。若调用方在 chunked prefill 下传入的 block_table 为空或行数与 batch 不符，gather 会越界读取 k_cache。
+has_cached_prefix 分支用 attn_metadata.total_kv_len 分配 latent_cache，并以 kv_seq_lens 作为 context_lengths 进行 reshape_from_cache。若 kv_seq_lens 之和与 total_kv_len 不相等（仅校验了 kv_seq_lens 维度与 block_table 行数，未校验其和），gather 写入会越界或留下未初始化内存。
 
-建议在调用 reshape_from_cache 前 CHECK(attn_metadata.block_table.defined()) 且 block_table.size(0) == kv_seq_lens.size(0)，并校验 max_context_len >= 各序列 kv_seq_lens 的最大值。
+建议增加 CHECK，确保 kv_seq_lens.sum() == total_kv_len，然后再执行 gather。
 
-### 回复 R01.1 — 马晓龙｜2026/11/17 03:10:24
+## R02 — 邓英旭｜2026/11/17 11:04:23｜xllm/core/layers/mlu/deepseek_v32/deepseek_v32_attention.cpp:697｜状态未核实
 
-- 账号：`maxiaolong.maxwell`；属于 R01 同一行级线程，沿用父线程位置与未核实状态。
-- 评论：[discussion_r3518591](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3518591)
-
-#### 【🟠 P2】【补充：失败模式比越界更隐蔽——是静默数据损坏】
-
-补充楼上这条：`block_table` 缺失时的问题不只是"缺校验"，而是 **`reshape_from_cache` 的 API 契约会把缺省解释成另一种布局模式**，失败形态是静默错值而非越界。
-
-**🔎 问题**
-
-`ReshapeFromCacheParams`（`xllm/core/kernels/param.h:174-201`）中 `block_tables` 是 `std::optional`，契约原文：
-
-```cpp
-// Source tensor containing cached key values.
-// Shape:
-//   - Linear mode: [max_batch_size, head_num, cache_mem_len, head_size]
-//   - Paged mode: [total_blocks, head_num, block_size, head_size]
-torch::Tensor key_cache;
-...
-// Dtype: int32. Default: None (linear mode).
-std::optional<torch::Tensor> block_tables;
-```
-
-即 `block_tables = nullopt` 不是"跳过分页索引"，而是**切换到 linear 模式寻址**。而本调用方传入的 `k_cache` 恒为 paged 布局 `[num_blocks, 1, block_size, 576]`：dim0（块数）被误当 batch 维、dim2（block_size）被当 cache_mem_len。两者同为 4 维，shape 校验不会报警；`context_lengths[i]` 的 gather 寻址整体错位，读到的是静默垃圾 K/V，输出错乱但不 crash。
-
-**触发条件**
-
-`forward_unabsorbed_prefill` 的 `total_kv_len > hidden_states.size(0)` 分支（`deepseek_v32_attention.cpp:640-646`，head 62281bdd81c2 行号）且 `attn_metadata.block_table` 未定义。标准 builder 在 chunked prefill 下总会填充 block_table，**当前主路径不可达**；风险面向未来手工构造 metadata 的调用方/新接入方。
-
-**🔧 修改建议**
-
-在调用 `kernel::reshape_from_cache` 前补：
-
-```cpp
-CHECK(attn_metadata.block_table.defined() &&
-      attn_metadata.block_table.size(0) == kv_seq_lens.size(0));
-```
-
-并加注释注明"本路径 key_cache 恒为 paged 布局，block_tables 缺失会被 TMO 按 linear 模式解释"。
-
-**🔬 验证**
-
-单测构造 `total_kv_len > tokens` 且 block_table 为 undefined 的 metadata，断言 CHECK 触发（而非静默垃圾输出）。
-
-（证据边界：TMO 内部行为依 param.h 契约注释推断，外部库无源码；布局误解释机制由契约注释 + 调用方实参证明。）
-
-### 回复 R01.2 — 邓英旭｜2026/11/17 03:15:35
-
-- 账号：`dengyingxu1`；属于 R01 同一行级线程，沿用父线程位置与未核实状态。
-- 评论：[discussion_r3518593](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3518593)
-
-针对你的疑问补充说明如下：
-[correctness] cached prefill 路径在 gather 前未校验 block_table 与 kv_seq_lens 的一致性
-位置：xllm/core/layers/mlu/deepseek_v32/deepseek_v32_attention.cpp:613-614
-问题：forward_unabsorbed_prefill 在 total_kv_len > hidden_states.size(0) 时直接用 attn_metadata.block_table 与 kv_seq_lens 调用 reshape_from_cache 收集历史 latent，并未做任何维度/非空检查。若调用方在 chunked prefill 下传入的 block_table 为空或行数与 batch 不符，gather 会越界读取 k_cache。
-建议：在调用 reshape_from_cache 前 CHECK(attn_metadata.block_table.defined()) 且 block_table.size(0) == kv_seq_lens.size(0)，并校验 max_context_len >= 各序列 kv_seq_lens 的最大值。
-
-如果此处确属必要写法或有特殊上下文，欢迎进一步说明，我们会重新评估该条建议。
-
-## R02 — 冯艳｜2026/11/16 19:47:25｜xllm/core/layers/mlu/fused_moe_all2all.cpp:99｜状态未核实
-
-- 类型：行级根评论；账号 `fengyan.119`；1 条已发布回复。
-- 线程：[discussion_r3517562](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3517562)
+- 类型：行级根评论；账号 `dengyingxu1`；0 条已发布回复。
+- 线程：[discussion_r3519180](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3519180)
 - 状态证据：所在讨论仅显示处理操作按钮，未见明确解决事件。
-- 位置说明：锚定新文件第 99 行；以下为页面线程预览片段，保留新增/上下文标记，未补全预览以外的代码。
+- 位置说明：锚定新文件第 697 行；以下为页面线程预览片段，保留新增/上下文标记，未补全预览以外的代码。
 
 ```diff
-+ // tensor and a second device copy.
-+    moe_expand_input_params.output = view_as_dtype(
-+        dispatch_send_token_tensor, hidden_states_2d.scalar_type());
-     expand_hidden_states =
+                        topk_transfer);
+   }
 ```
 
 ### 根评论原文
 
-#### 【🔵 minor】【🧹 dead-code】
+**2. 正确性 — unabsorbed prefill 分支绕过 can_use_cp 等路径检查**
+位置：`xllm/core/layers/mlu/deepseek_v32/deepseek_v32_attention.cpp:697-706`
 
-#### 非量化分支的 expand_hidden_states 赋值已无任何读者
+新增的 forward_unabsorbed_prefill 调度条件未检查 dcp_spans_tp_/ can_use_cp 相关状态，若启用 DCP/CP 时仍会进入该分支，而 forward_unabsorbed_prefill 内部未做任何 CP 处理，可能产生错误结果。
 
----
+建议在调度条件中显式排除 CP/DCP 启用场景，或在 forward_unabsorbed_prefill 入口 CHECK 相关配置。
 
-**🔎 问题**
+## R03 — 冯艳｜2026/11/17 14:08:07｜xllm/core/layers/mlu/deepseek_v32/deepseek_v32_attention.cpp:671｜状态未核实
 
-> 本次改动把 dispatch buffer 拷贝（原 dispatch_send_token_tensor.copy_(view_as_dtype(expand_hidden_states, torch::kChar))）替换为 moe_expand_input_params.output 直写后，第 99-100 行的 expand_hidden_states = xllm::kernel::moe_expand_input(moe_expand_input_params) 赋值在本函数内不再被读取：函数随后只填充 selected_expert_info（reduce_weight/combine_idx，量化分支才填 input_scale）并于 109 行返回，expand_hidden_states 在 51 行声明后仅量化分支（78-79 行 std::tie）真正消费。残留的死赋值会让后续维护者误以为非量化路径下游仍消费该展开结果。
-
----
-
-**🔧 修改建议**
-
-把第 99-100 行改为不接收返回值的直接调用：
-
-```cpp
-    xllm::kernel::moe_expand_input(moe_expand_input_params);
-```
-
-展开结果已由 moe_expand_input_params.output 直写进通信 buffer，返回值即该视图本身，无需再绑定到局部变量。
-
----
-
-**🔬 复现步骤** `🔧 静态审查（MLU 源码阅读，未在 MLU 设备上执行）`
-
-未执行（静态证据）：读取 xllm/core/layers/mlu/fused_moe_all2all.cpp 第 40-109 行，确认第 99 行赋值后至函数结束（第 109 行）没有对 expand_hidden_states 的任何读取；对比改动前 diff（第 92-103 行），被删除的 dispatch_send_token_tensor.copy_ 是该值在本分支内的唯一读者。
-
-### 回复 R02.1 — 马晓龙｜2026/11/17 03:12:54
-
-- 账号：`maxiaolong.maxwell`；属于 R02 同一行级线程，沿用父线程位置与未核实状态。
-- 评论：[discussion_r3518592](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3518592)
-
-#### 【🔵 minor】【🧹 dead-code】【补充：该变量可以整体删除，a8 分支的赋值死得更早】
-
-补充楼上这条：不只是第 99-100 行，**`expand_hidden_states` 这个局部变量可以整个删掉**——它在两个分支的赋值均已无读者。
-
-**🔎 问题**
-
-`select_experts_all2all` 内该变量的完整生命周期（`xllm/core/layers/mlu/fused_moe_all2all.cpp`，head 62281bdd81c2 行号）：
-
-```cpp
-torch::Tensor expand_hidden_states;            // :51 声明
-...
-std::tie(expand_hidden_states, hidden_states_scale) =   // :78，a8 分支
-    xllm::kernel::scaled_quantize(scaled_quantize_params);
-...
-expand_hidden_states =                          // :99-100，非 a8 分支（楼上锚点）
-    xllm::kernel::moe_expand_input(moe_expand_input_params);
-```
-
-- 非 a8 分支：本 MR 用 `moe_expand_input_params.output` 直写通信 buffer 替掉了 `copy_` 后，`:99` 赋值无读者（楼上已指出）；
-- a8 分支：`scaled_quantize_params.output` 早在本 MR 之前就直写 `dispatch_send_token_tensor`（`:70-71`），所以 `:78` 的赋值**在本 MR 之前就死了**；
-- 函数随后只填充 `selected_expert_info` 并于 `:109` 返回，两个赋值点之后均无读取。`-Wunused-but-set-variable` 可检出。
-
-注意 `forward_experts_all2all:191` 的同名变量是另一函数的独立局部，与本条无关。
-
-**🔧 修改建议**
-
-三处一次清完：
-
-```cpp
-// 删除 :51 的声明；
-// :78 a8 分支改为：
-std::tie(std::ignore, hidden_states_scale) =
-    xllm::kernel::scaled_quantize(scaled_quantize_params);
-// :99 非 a8 分支改为不接收返回值的直接调用：
-xllm::kernel::moe_expand_input(moe_expand_input_params);
-```
-
-**🔬 验证**
-
-编译无新增警告；既有 `fused_moe_test.cpp` / all2all 数值测试通过。
-
-## R03 — 马晓龙｜2026/11/17 03:16:08｜tests/core/layers/mlu/mla_prefill_dispatch_test.cpp:63｜状态未核实
-
-- 类型：行级根评论；账号 `maxiaolong.maxwell`；0 条已发布回复。
-- 线程：[discussion_r3518594](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3518594)
+- 类型：行级根评论；账号 `fengyan.119`；0 条已发布回复。
+- 线程：[discussion_r3520139](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3520139)
 - 状态证据：所在讨论仅显示处理操作按钮，未见明确解决事件。
-- 位置说明：锚定新文件第 63 行；以下为页面线程预览片段，保留新增/上下文标记，未补全预览以外的代码。
+- 位置说明：锚定新文件第 671 行；以下为页面线程预览片段，保留新增/上下文标记，未补全预览以外的代码。
 
 ```diff
-+    args.rope_scaling_mscale_all_dim() = 1;
-+    args.enable_mla() = true;
-+    args.index_n_heads() = 0;
-+    std::unique_ptr<ProcessGroup> process_group;
++  auto key_rope = latent_cache.slice(-1, kv_lora_rank_)
++                      .unsqueeze(1)
++                      .expand({-1, heads, -1});
++  auto key = torch::cat({key_nope, key_rope}, /*dim=*/-1);
 ```
 
 ### 根评论原文
 
-#### 【🟠 P2】【🧪 test-gap】MLA unabsorbed 路径全部测试用例 tp_size=1，生产必经的 TP 分片接线无测试锁定
+#### 【🟠 important】【⚡ perf】
+
+#### cached-prefix unabsorbed prefill 按 total_kv_len 物化 heads 份 K/V，缺少上下文长度上界
 
 ---
 
 **🔎 问题**
 
-`mla_prefill_dispatch_test.cpp` 所有用例都经 `create_default_parallel_args` 构造 `ParallelArgs(0, 1, ...)`（world_size=1）：
+> forward_unabsorbed_prefill 的 has_cached_prefix 分支把整段历史 latent 展开成显式 K/V：latent 是 [heads, total_kv_len, kv_lora_rank] 的 expand 视图，第 667 行 bmm 出 key_nope [total_kv_len, heads, qk_nope_head_dim]，第 671 行 torch::cat 再分配一份完整 K [total_kv_len, heads, qk_head_dim]，第 672 行 bmm 后 .contiguous() 分配完整 V [total_kv_len, heads, v_head_dim]。分发条件（699-705 行）只要求 max_query_len >= 1024 与 total_kv_len >= hidden_states.size(0)，对 total_kv_len 无上界；chunked prefill 正是最常命中该条件的场景，随 chunk 推进 total_kv_len 单调增长到整段上下文。以 MLA 典型几何（qk_nope=128、qk_rope=64、v_head_dim=128、bf16）估算，128K 上下文时单层 K/V 物化达数 GB 量级，而 absorbed 路径只保留 latent [tokens, 576]，新路径把 KV 物化放大约 heads×head_dim/576 倍。这是从改动代码即可判定的容量回归，长上下文 chunked prefill 会把显存打满。
 
-```cpp
-std::unique_ptr<ProcessGroup> process_group;
-auto parallel_args = test::create_default_parallel_args(process_group);
-```
-
-而生产环境 DeepSeek V3.2 MLU 必然 TP>1，unabsorbed 路径上有三处 TP 分片接线目前只靠代码审查保证正确、无测试锁定（`deepseek_v32_attention.cpp`，head 62281bdd81c2 行号）：
-
-```cpp
-// :145-149  w_kc_/w_vc_ 取 kv_b_proj_ 本地权重的切片（ColumnParallelLinear 本地份）
-w_kc_ = weights.slice(1, 0, qk_nope_head_dim_);
-w_vc_ = weights.slice(1, qk_nope_head_dim_, qk_nope_head_dim_ + v_head_dim_);
-// :226-237  unabsorbed Attention 以 local_heads() 注册
-Attention(local_heads(), qk_head_dim_, local_heads(), ...)
-// :252-263  o_proj input_is_parallelized=true / reduce=false（输出 TP_SHARD）
-```
-
-tp=1 下 `local_heads == full_heads`、`w_kc_/w_vc_` 为全量切片，数值等价验证**没有穿过任何分片逻辑**；未来对上述接线的回归（如误用 `full_heads()`、漏 transpose、o_proj 分片参数改错）不会被现有测试捕获。
-
-**后果**：TP>1 环境下的静默数值错误（头维度拼接错位/输出漏 reduce），tp=1 测试全绿。
+---
 
 **🔧 修改建议**
 
-仿照 `deepseek_v32_sparse_moe_block_test.cpp:45-61` 的 `MergeOutputProcessGroup` 先例（MockProcessGroup 已支持 world_size=2）补一个 tp=2 用例：两 rank 各持 `local_heads=2`，latent 由 `kv_a_proj_with_mqa_`（ReplicatedLinear）产生、各 rank 一致；物化 K/V 用本地 `w_kc_`/`w_vc_` 切片；断言输出与 tp=1 参考按头拼接后 allclose。
+给 700-705 行分发条件补上 total_kv_len 上界，超出即回落 absorbed 路径（例如新增 constexpr int64_t kMaxUnabsorbedPrefillKvTokens 并加 attn_metadata.total_kv_len <= kMaxUnabsorbedPrefillKvTokens）；同时把 667-671 行 bmm→transpose→cat 改成先 torch::empty({total_kv_len, heads, qk_head_dim_}) 再分两段写入（key.slice(-1, 0, qk_nope_head_dim_).copy_(key_nope)、key.slice(-1, qk_nope_head_dim_).copy_(key_rope)），省掉 cat 的整份 K 复制。
 
-**🔬 验证**
+## R04 — 冯艳｜2026/11/17 14:08:07｜xllm/core/kernels/param.h:618｜状态未核实
 
-新增用例通过；回归注入（把 `local_heads()` 改成 `full_heads()`）使该测试失败。
+- 类型：行级根评论；账号 `fengyan.119`；0 条已发布回复。
+- 线程：[discussion_r3520140](http://xingyun.jd.com/codingRoot/xLLM_AI/xllm/merges/840#discussion_r3520140)
+- 状态证据：所在讨论仅显示处理操作按钮，未见明确解决事件。
+- 位置说明：锚定新文件第 618 行；以下为页面线程预览片段，保留新增/上下文标记，未补全预览以外的代码。
 
-（证据边界：TP 接线正确性本身是代码审查结论，无运行时证据。）
+```diff
+   int64_t expert_size;
++  // Optional preallocated output for the MLU backend.
++  // Shape: [expand_token_num, hidden_size], with the same dtype as input.
++  std::optional<torch::Tensor> output = std::nullopt;
+```
+
+### 根评论原文
+
+#### 【🔵 minor】【🏛️ architecture】
+
+#### MLU 专属 output 缓冲被加进共享 MoeExpandInputParams，未按既有后端分区放置
+
+---
+
+**🔎 问题**
+
+> MoeExpandInputParams 是 kernels 层的跨后端共享参数结构，新增的 std::optionaltorch::Tensor output 语义只对 MLU 成立（注释自述 'Optional preallocated output for the MLU backend'），ILU 分支在 ops_api.cpp 773-774 行用 CHECK(!params.output.has_value()) 在运行时拒绝它，其余后端走 NOT_IMPLEMENTED。同一结构体里 ILU 专属字段（combine_idx、topk）由 // ========== Torch ILU related parameters ========== 分区头显式隔离（619 行），NPU 专属字段也有对应分区头（443 行），本字段却插在通用字段（expert_size，615 行）与 ILU 分区头之间，读起来像所有后端都支持的通用契约，实际只有 MLU 一条路径消费；后续后端实现会误判是否需要处理它，或像 ILU 一样再加一条防御性 CHECK。
+
+---
+
+**🔧 修改建议**
+
+把 616-618 行移成结构体末尾一节，并加与 ILU/NPU 分区对齐的分区头，例如 // ========== Torch MLU related parameters ========== 后紧跟该字段；若要更彻底隔离，可在 namespace xllm::kernel 下新增 MLU 专属参数类型，只由 kernels/mlu/fused_moe.cpp 与 layers/mlu/fused_moe_all2all.cpp 使用，共享结构体不再保留该字段。
